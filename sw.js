@@ -1,4 +1,4 @@
-const CACHE="fieldscout-v0.9.2-shell";
+const CACHE="fieldscout-v0.9.3-shell";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./db.js","./utils.js","./api.js","./ranking.js","./manifest.webmanifest"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

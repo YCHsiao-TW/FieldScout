@@ -1,4 +1,4 @@
-# FieldScout v0.9.2 — TBN Integration
+# FieldScout v0.9.3 — Trip Hotfix
 
 > **Taiwan Biodiversity Field Scouting Tool / 臺灣生物多樣性野外探點工具**
 
@@ -8,7 +8,7 @@
 
 FieldScout is a mobile-first, local-first biodiversity field scouting, trip-planning, navigation, and field-recording PWA for Taiwan.
 
-## v0.9.2
+## v0.9.3
 
 Occurrence sources now include:
 

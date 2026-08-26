@@ -1,6 +1,10 @@
-# FieldScout v0.9.2 — TBN Integration
+# FieldScout v0.9.3 — Trip Hotfix
 
 **🚀 Open the App: <https://ychsiao-tw.github.io/FieldScout/>**
+
+## v0.9.3 hotfix
+
+All Add-to-Trip entry points now share a defensive trip workflow. If no trip exists, FieldScout automatically creates today's trip. Legacy trip data are normalized, coordinates are coerced to numbers, duplicates are reported, and errors are surfaced in the status bar.
 
 FieldScout is a mobile-first, local-first biodiversity field scouting, trip-planning, navigation, and field-recording PWA for Taiwan.
 
@@ -8,7 +12,7 @@ It still runs as a **pure GitHub Pages app without a Firebase backend**.
 
 ## Occurrence sources
 
-v0.9.2 searches:
+v0.9.3 searches:
 
 - TBIA
 - **Taiwan Biodiversity Network (TBN) Open API v2.6**
