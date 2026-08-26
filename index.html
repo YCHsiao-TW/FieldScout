@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FieldScout">
+  <title>FieldScout</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">TAIWAN FIELD TOOL</div>
+        <h1>FieldScout</h1>
+      </div>
+      <div id="netBadge" class="badge">ONLINE</div>
+    </header>
+
+    <section id="mapWrap">
+      <div id="map"></div>
+      <button id="locateBtn" class="map-btn locate" aria-label="定位">◎</button>
+      <div id="gpsPanel" class="gps-panel hidden">
+        <strong id="gpsText">GPS</strong>
+        <span id="gpsAcc"></span>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <div class="search-row">
+        <input id="taxonInput" type="search" placeholder="輸入蜘蛛學名或中文名" autocomplete="off" value="Pardosa pseudoannulata">
+        <button id="searchBtn">搜尋</button>
+      </div>
+      <div class="quick-row">
+        <button data-mode="nearby" class="chip active">附近紀錄</button>
+        <button data-mode="target" class="chip">候選探點</button>
+        <button data-mode="trip" class="chip">今日行程</button>
+        <button data-mode="record" class="chip">採集紀錄</button>
+      </div>
+      <div id="status" class="status">可直接搜尋 TBIA；若未授權定位，仍可用地圖瀏覽。</div>
+
+      <section id="panel-nearby" class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>物種紀錄</h2>
+            <p id="resultMeta">尚未查詢</p>
+          </div>
+          <select id="radiusSelect" aria-label="附近半徑">
+            <option value="1">1 km</option>
+            <option value="5" selected>5 km</option>
+            <option value="10">10 km</option>
+            <option value="25">25 km</option>
+          </select>
+        </div>
+        <div id="recordList" class="cards"></div>
+      </section>
+
+      <section id="panel-target" class="panel hidden">
+        <div class="panel-head">
+          <div>
+            <h2>候選探點</h2>
+            <p>以紀錄密度、近期性與距離做可解釋排序</p>
+          </div>
+          <button id="rankBtn" class="small-btn">重新排名</button>
+        </div>
+        <div id="candidateList" class="cards"></div>
+      </section>
+
+      <section id="panel-trip" class="panel hidden">
+        <div class="panel-head">
+          <div>
+            <h2>今日行程</h2>
+            <p>資料只存在這支手機瀏覽器</p>
+          </div>
+          <button id="clearTripBtn" class="small-btn danger">清空</button>
+        </div>
+        <div id="tripList" class="cards"></div>
+        <div class="export-row">
+          <button id="geojsonBtn">匯出 GeoJSON</button>
+          <button id="csvBtn">匯出 CSV</button>
+        </div>
+      </section>
+
+      <section id="panel-record" class="panel hidden">
+        <form id="fieldForm">
+          <div class="two-col">
+            <label>標本號
+              <input id="specimenId" required placeholder="ABARA05001">
+            </label>
+            <label>數量
+              <input id="count" type="number" min="1" value="1">
+            </label>
+          </div>
+          <label>物種
+            <input id="recordTaxon" placeholder="Scientific name">
+          </label>
+          <label>微棲地
+            <select id="microhabitat">
+              <option>地表／落葉層</option>
+              <option>草叢</option>
+              <option>石下</option>
+              <option>樹幹</option>
+              <option>溪流邊</option>
+              <option>其他</option>
+            </select>
+          </label>
+          <label>採集方法
+            <select id="method">
+              <option>手採</option>
+              <option>sweeping</option>
+              <option>beating</option>
+              <option>pitfall</option>
+              <option>其他</option>
+            </select>
+          </label>
+          <label>備註
+            <textarea id="notes" rows="3" placeholder="環境、行為、天氣……"></textarea>
+          </label>
+          <div class="gps-capture">
+            <span id="captureGpsText">尚未記錄 GPS</span>
+            <button type="button" id="captureGpsBtn" class="small-btn">取得 GPS</button>
+          </div>
+          <button class="primary wide" type="submit">儲存採集紀錄</button>
+        </form>
+        <div id="savedList" class="cards"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
