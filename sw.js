@@ -1,4 +1,4 @@
-const CACHE="fieldscout-v0.3.1";
+const CACHE="fieldscout-v0.4.0";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest"];
 
 self.addEventListener("install",event=>{

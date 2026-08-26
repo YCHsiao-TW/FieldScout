@@ -28,3 +28,20 @@ input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;bo
 .record-form-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
 .record-editing{outline:2px solid var(--accent);outline-offset:1px}
 @media(min-width:520px){.record-form-actions{grid-template-columns:1fr 1fr}}
+
+.panel-tools{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;align-items:center}
+.panel-tools select{width:auto;min-width:92px}
+.export-row-top{margin:0 0 10px}
+.record-export-row{margin:12px 0}
+.actions a,.nav-link{
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);background:#fff;color:var(--text);
+  border-radius:10px;padding:8px 10px;font-size:13px;
+  text-decoration:none;min-height:36px
+}
+.actions{flex-wrap:wrap}
+@media(max-width:480px){
+  .panel-head{align-items:stretch}
+  .panel-tools{width:100%;justify-content:stretch}
+  .panel-tools select,.panel-tools button{flex:1 1 auto}
+}

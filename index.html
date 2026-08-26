@@ -51,13 +51,20 @@
             <h2>物種紀錄</h2>
             <p id="resultMeta">尚未查詢</p>
           </div>
-          <select id="radiusSelect" aria-label="附近半徑">
-            <option value="all" selected>全臺</option>
-            <option value="1">1 km</option>
-            <option value="5">5 km</option>
-            <option value="10">10 km</option>
-            <option value="25">25 km</option>
-          </select>
+          <div class="panel-tools">
+            <select id="radiusSelect" aria-label="附近半徑">
+              <option value="all" selected>全臺</option>
+              <option value="1">1 km</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="25">25 km</option>
+            </select>
+            <button id="addAllPointsBtn" class="small-btn" type="button">全部加入行程</button>
+          </div>
+        </div>
+        <div class="export-row export-row-top">
+          <button id="searchGeojsonBtn" type="button">搜尋點位 → GeoJSON</button>
+          <button id="searchCsvBtn" type="button">搜尋點位 → CSV</button>
         </div>
         <div id="recordList" class="cards"></div>
       </section>
@@ -132,12 +139,16 @@
             <button id="cancelEditBtn" class="small-btn wide hidden" type="button">取消編輯</button>
           </div>
         </form>
+        <div class="export-row record-export-row">
+          <button id="recordsGeojsonBtn" type="button">採集紀錄 → GeoJSON</button>
+          <button id="recordsCsvBtn" type="button">採集紀錄 → CSV</button>
+        </div>
         <div id="savedList" class="cards"></div>
       </section>
     </section>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="./app.js?v=0.3.1"></script>
+  <script src="./app.js?v=0.4.0"></script>
 </body>
 </html>

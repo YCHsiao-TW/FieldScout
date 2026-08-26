@@ -48,6 +48,17 @@ function eventDate(r){ return r.eventDate || r.year || r.modified || "日期不�
 function locality(r){ return r.locality || r.county || r.municipality || r.stateProvince || r.place_guess || "地點未提供"; }
 function sourceName(r){ return r.source || "未知來源"; }
 
+function googleMapsNavUrl(lat,lon){
+  const dest=`${Number(lat).toFixed(7)},${Number(lon).toFixed(7)}`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=driving`;
+}
+function stableRecordId(r){
+  return r.id || r.occurrenceID || `${sourceName(r)}:${getLat(r).toFixed(6)}:${getLon(r).toFixed(6)}:${String(eventDate(r)).slice(0,10)}`;
+}
+function csvEscape(v){
+  return `"${String(v??"").replaceAll('"','""')}"`;
+}
+
 async function fetchJson(url, timeout=15000){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeout);
@@ -356,7 +367,9 @@ function renderRecords(){
     $("#resultMeta").textContent=`${radius} km 內 ${list.length} 筆／全臺 ${state.records.length} 筆`;
   }
 
-  $("#recordList").innerHTML=list.length?list.slice(0,100).map(r=>`
+  $("#recordList").innerHTML=list.length?list.slice(0,100).map(r=>{
+    const lat=getLat(r),lon=getLon(r);
+    return `
     <article class="card">
       <div class="card-top">
         <div>
@@ -365,10 +378,12 @@ function renderRecords(){
         </div>
       </div>
       <div class="actions">
-        <button data-show="${getLat(r)},${getLon(r)}">地圖定位</button>
-        <button data-addrec="${esc(r.id||r.occurrenceID||crypto.randomUUID())}" data-lat="${getLat(r)}" data-lon="${getLon(r)}" data-name="${esc(locality(r))}" data-source="${esc(sourceName(r))}">加入行程</button>
+        <button data-show="${lat},${lon}">地圖定位</button>
+        <a class="nav-link" href="${googleMapsNavUrl(lat,lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
+        <button data-addrec="${esc(stableRecordId(r))}" data-lat="${lat}" data-lon="${lon}" data-name="${esc(locality(r))}" data-source="${esc(sourceName(r))}">加入行程</button>
       </div>
-    </article>`).join(""):`<div class="empty">${state.records.length?"目前半徑內沒有紀錄，可切換「全臺」查看。":"搜尋後會在這裡顯示紀錄。"}</div>`;
+    </article>`;
+  }).join(""):`<div class="empty">${state.records.length?"目前半徑內沒有紀錄，可切換「全臺」查看。":"搜尋後會在這裡顯示紀錄。"}</div>`;
 
   $$("[data-show]").forEach(b=>b.onclick=()=>{
     const [lat,lon]=b.dataset.show.split(",").map(Number);
@@ -377,6 +392,31 @@ function renderRecords(){
   $$("[data-addrec]").forEach(b=>b.onclick=()=>addTrip({
     id:b.dataset.addrec,name:b.dataset.name,lat:+b.dataset.lat,lon:+b.dataset.lon,source:b.dataset.source||"occurrence"
   }));
+}
+function addAllVisibleToTrip(){
+  const list=nearbyFiltered();
+  if(!list.length){
+    setStatus("目前沒有可加入行程的點位。");
+    return;
+  }
+
+  let added=0;
+  for(const r of list){
+    const item={
+      id:stableRecordId(r),
+      name:locality(r),
+      lat:getLat(r),
+      lon:getLon(r),
+      source:sourceName(r)
+    };
+    if(!state.trip.some(t=>t.id===item.id)){
+      state.trip.push(item);
+      added++;
+    }
+  }
+  persist();
+  renderTrip();
+  setStatus(`已將目前篩選的 ${list.length} 個點位加入行程；新增 ${added} 個，略過 ${list.length-added} 個重複點位。`);
 }
 function rankCandidates(){
   if(!state.records.length){ state.candidates=[]; renderCandidates(); return; }
@@ -410,7 +450,11 @@ function renderCandidates(){
         <div><h3>#${i+1} ${esc(c.name)}</h3><div class="meta">${c.count} 筆附近紀錄 · 最近 ${c.recent||"不明"}${c.dist!=null?` · ${c.dist.toFixed(1)} km`:``}<br>${esc((c.sources||[]).join(" + "))}</div></div>
         <div class="score">${c.score}</div>
       </div>
-      <div class="actions"><button data-cshow="${c.lat},${c.lon}">看地圖</button><button data-cadd="${i}">加入行程</button></div>
+      <div class="actions">
+        <button data-cshow="${c.lat},${c.lon}">看地圖</button>
+        <a class="nav-link" href="${googleMapsNavUrl(c.lat,c.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
+        <button data-cadd="${i}">加入行程</button>
+      </div>
     </article>`).join(""):`<div class="empty">搜尋物種後才會產生候選探點。</div>`;
   $$("[data-cshow]").forEach(b=>b.onclick=()=>{
     const [lat,lon]=b.dataset.cshow.split(",").map(Number);
@@ -424,8 +468,16 @@ function addTrip(x){
 }
 function renderTrip(){
   $("#tripList").innerHTML=state.trip.length?state.trip.map((t,i)=>`
-    <article class="card"><div class="card-top"><div><h3>${i+1}. ${esc(t.name)}</h3><div class="meta">${Number(t.lat).toFixed(5)}, ${Number(t.lon).toFixed(5)} · ${esc(t.source||"")}</div></div></div>
-    <div class="actions"><button data-tripshow="${t.lat},${t.lon}">看地圖</button><button data-remove="${i}">移除</button></div></article>`).join(""):`<div class="empty">尚未加入探點。</div>`;
+    <article class="card">
+      <div class="card-top">
+        <div><h3>${i+1}. ${esc(t.name)}</h3><div class="meta">${Number(t.lat).toFixed(5)}, ${Number(t.lon).toFixed(5)} · ${esc(t.source||"")}</div></div>
+      </div>
+      <div class="actions">
+        <button data-tripshow="${t.lat},${t.lon}">看地圖</button>
+        <a class="nav-link" href="${googleMapsNavUrl(t.lat,t.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
+        <button data-remove="${i}">移除</button>
+      </div>
+    </article>`).join(""):`<div class="empty">尚未加入探點。</div>`;
   $$("[data-tripshow]").forEach(b=>b.onclick=()=>{
     const [lat,lon]=b.dataset.tripshow.split(",").map(Number);
     state.map.setView([lat,lon],15);
@@ -445,7 +497,7 @@ function renderSaved(){
       <div class="actions">
         <button type="button" data-edit-record="${i}">編輯</button>
         <button type="button" data-delete-record="${i}">刪除</button>
-        ${r.lat!=null?`<button type="button" data-show-record="${r.lat},${r.lon}">地圖定位</button>`:""}
+        ${r.lat!=null?`<button type="button" data-show-record="${r.lat},${r.lon}">地圖定位</button><a class="nav-link" href="${googleMapsNavUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>`:""}
       </div>
     </article>`).join(""):`<div class="empty">尚未建立採集紀錄。</div>`;
 
@@ -556,8 +608,93 @@ function exportGeoJSON(){
 }
 function exportCSV(){
   const rows=[["name","latitude","longitude","score","source"],...state.trip.map(t=>[t.name,t.lat,t.lon,t.score??"",t.source??""])];
-  const q=v=>`"${String(v).replaceAll('"','""')}"`;
-  download("fieldscout_trip.csv","text/csv;charset=utf-8","\ufeff"+rows.map(r=>r.map(q).join(",")).join("\n"));
+  download("fieldscout_trip.csv","text/csv;charset=utf-8","\ufeff"+rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+}
+
+function exportSearchGeoJSON(){
+  if(!state.records.length){ setStatus("目前沒有搜尋點位可匯出。"); return; }
+  const fc={
+    type:"FeatureCollection",
+    features:state.records.map(r=>({
+      type:"Feature",
+      geometry:{type:"Point",coordinates:[getLon(r),getLat(r)]},
+      properties:{
+        occurrence_id:r.occurrenceID||r.id||"",
+        scientific_name:recordName(r),
+        locality:locality(r),
+        event_date:eventDate(r),
+        source:sourceName(r),
+        basis_of_record:r.basisOfRecord||"",
+        coordinate_uncertainty_m:r.coordinateUncertaintyInMeters??"",
+        source_url:r.sourceUrl||""
+      }
+    }))
+  };
+  download("fieldscout_search_points.geojson","application/geo+json",JSON.stringify(fc,null,2));
+  setStatus(`已匯出 ${state.records.length} 筆搜尋點位 GeoJSON。`);
+}
+function exportSearchCSV(){
+  if(!state.records.length){ setStatus("目前沒有搜尋點位可匯出。"); return; }
+  const rows=[[
+    "occurrence_id","scientific_name","locality","event_date","latitude","longitude",
+    "source","basis_of_record","coordinate_uncertainty_m","source_url"
+  ]];
+  for(const r of state.records){
+    rows.push([
+      r.occurrenceID||r.id||"",
+      recordName(r),
+      locality(r),
+      eventDate(r),
+      getLat(r),
+      getLon(r),
+      sourceName(r),
+      r.basisOfRecord||"",
+      r.coordinateUncertaintyInMeters??"",
+      r.sourceUrl||""
+    ]);
+  }
+  download("fieldscout_search_points.csv","text/csv;charset=utf-8","\ufeff"+rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+  setStatus(`已匯出 ${state.records.length} 筆搜尋點位 CSV。`);
+}
+
+function exportFieldRecordsGeoJSON(){
+  if(!state.saved.length){ setStatus("目前沒有採集紀錄可匯出。"); return; }
+  const fc={
+    type:"FeatureCollection",
+    features:state.saved.map(r=>({
+      type:"Feature",
+      geometry:(r.lat!=null&&r.lon!=null)?{type:"Point",coordinates:[Number(r.lon),Number(r.lat)]}:null,
+      properties:{
+        record_id:r.id||"",
+        specimen_id:r.specimen||"",
+        count:r.count??1,
+        taxon:r.taxon||"",
+        microhabitat:r.microhabitat||"",
+        method:r.method||"",
+        notes:r.notes||"",
+        gps_accuracy_m:r.accuracy??"",
+        created_at:r.createdAt||r.time||"",
+        updated_at:r.updatedAt||""
+      }
+    }))
+  };
+  download("fieldscout_field_records.geojson","application/geo+json",JSON.stringify(fc,null,2));
+  setStatus(`已匯出 ${state.saved.length} 筆採集紀錄 GeoJSON。`);
+}
+function exportFieldRecordsCSV(){
+  if(!state.saved.length){ setStatus("目前沒有採集紀錄可匯出。"); return; }
+  const rows=[[
+    "record_id","specimen_id","count","taxon","microhabitat","method","notes",
+    "latitude","longitude","gps_accuracy_m","created_at","updated_at"
+  ]];
+  for(const r of state.saved){
+    rows.push([
+      r.id||"",r.specimen||"",r.count??1,r.taxon||"",r.microhabitat||"",r.method||"",r.notes||"",
+      r.lat??"",r.lon??"",r.accuracy??"",r.createdAt||r.time||"",r.updatedAt||""
+    ]);
+  }
+  download("fieldscout_field_records.csv","text/csv;charset=utf-8","\ufeff"+rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+  setStatus(`已匯出 ${state.saved.length} 筆採集紀錄 CSV。`);
 }
 
 window.addEventListener("online",()=>$("#netBadge").textContent="ONLINE");
@@ -566,6 +703,11 @@ $("#searchBtn").onclick=searchAll;
 $("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchAll();});
 $("#locateBtn").onclick=()=>locate(true);
 $("#radiusSelect").onchange=renderRecords;
+$("#addAllPointsBtn").onclick=addAllVisibleToTrip;
+$("#searchGeojsonBtn").onclick=exportSearchGeoJSON;
+$("#searchCsvBtn").onclick=exportSearchCSV;
+$("#recordsGeojsonBtn").onclick=exportFieldRecordsGeoJSON;
+$("#recordsCsvBtn").onclick=exportFieldRecordsCSV;
 $("#rankBtn").onclick=rankCandidates;
 $("#clearTripBtn").onclick=()=>{if(confirm("清空今日行程？")){state.trip=[];persist();renderTrip();}};
 $("#geojsonBtn").onclick=exportGeoJSON;
