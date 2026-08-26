@@ -43,7 +43,7 @@
         <button data-mode="trip" class="chip">今日行程</button>
         <button data-mode="record" class="chip">採集紀錄</button>
       </div>
-      <div id="status" class="status">可直接搜尋 TBIA；若未授權定位，仍可用地圖瀏覽。</div>
+      <div id="status" class="status">搜尋會先嘗試 TBIA；若瀏覽器擋住，會自動改用 TaiCOL、GBIF 與 iNaturalist。</div>
 
       <section id="panel-nearby" class="panel">
         <div class="panel-head">
@@ -52,8 +52,9 @@
             <p id="resultMeta">尚未查詢</p>
           </div>
           <select id="radiusSelect" aria-label="附近半徑">
+            <option value="all" selected>全臺</option>
             <option value="1">1 km</option>
-            <option value="5" selected>5 km</option>
+            <option value="5">5 km</option>
             <option value="10">10 km</option>
             <option value="25">25 km</option>
           </select>
@@ -126,7 +127,10 @@
             <span id="captureGpsText">尚未記錄 GPS</span>
             <button type="button" id="captureGpsBtn" class="small-btn">取得 GPS</button>
           </div>
-          <button class="primary wide" type="submit">儲存採集紀錄</button>
+          <div class="record-form-actions">
+            <button id="saveRecordBtn" class="primary wide" type="submit">儲存採集紀錄</button>
+            <button id="cancelEditBtn" class="small-btn wide hidden" type="button">取消編輯</button>
+          </div>
         </form>
         <div id="savedList" class="cards"></div>
       </section>
@@ -134,6 +138,6 @@
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=0.3.1"></script>
 </body>
 </html>

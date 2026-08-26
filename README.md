@@ -1,4 +1,4 @@
-# FieldScout Mobile Web v0.2.0
+# FieldScout Mobile Web v0.3.0
 
 這一版改成 **純前端、mobile-first PWA**。
 
@@ -47,3 +47,27 @@
 Safari → 分享 → 加入主畫面
 
 即可用接近 App 的 standalone 模式開啟。
+
+
+## v0.3.0 search changes
+
+Search now uses a fallback chain suitable for a static GitHub Pages site:
+
+1. TaiCOL `nameMatch` resolves Chinese/scientific names where browser access is available.
+2. FieldScout tries TBIA occurrence data first.
+3. If TBIA is blocked by browser CORS, FieldScout automatically queries GBIF Taiwan occurrences and iNaturalist Taiwan observations.
+4. Records are normalized into the same map/list/ranking workflow.
+5. A new `全臺` radius option prevents GPS location from hiding valid records elsewhere in Taiwan.
+
+This remains a client-only prototype. A future first-party proxy is still recommended for reliable TBIA access.
+
+
+## v0.3.1 field-record editing
+
+- Existing field records can be edited.
+- Edit loads specimen ID, count, taxon, microhabitat, method, notes and GPS back into the form.
+- Saving while editing updates the original record instead of creating a duplicate.
+- Records can be deleted with confirmation.
+- Records can be located on the map when GPS exists.
+- Created and updated timestamps are retained.
+- Legacy localStorage records from v0.2/v0.3 are migrated in the browser.
