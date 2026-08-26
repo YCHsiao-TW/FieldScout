@@ -17,7 +17,7 @@
   <main id="app">
     <header class="topbar">
       <div>
-        <div class="eyebrow">TAIWAN FIELD TOOL</div>
+        <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
         <h1>FieldScout</h1>
       </div>
       <div id="netBadge" class="badge">ONLINE</div>
@@ -34,7 +34,7 @@
 
     <section class="sheet">
       <div class="search-row">
-        <input id="taxonInput" type="search" placeholder="輸入蜘蛛學名或中文名" autocomplete="off" value="Pardosa pseudoannulata">
+        <input id="taxonInput" type="search" placeholder="輸入物種學名或中文名" autocomplete="off" value="">
         <button id="searchBtn">搜尋</button>
       </div>
       <div class="quick-row">
@@ -43,7 +43,7 @@
         <button data-mode="trip" class="chip">今日行程</button>
         <button data-mode="record" class="chip">採集紀錄</button>
       </div>
-      <div id="status" class="status">搜尋會先嘗試 TBIA；若瀏覽器擋住，會自動改用 TaiCOL、GBIF 與 iNaturalist。</div>
+      <div id="status" class="status">輸入任一物種學名或中文名；搜尋會先嘗試 TBIA，必要時自動改用 TaiCOL、GBIF 與 iNaturalist。</div>
 
       <section id="panel-nearby" class="panel">
         <div class="panel-head">
@@ -149,6 +149,6 @@
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="./app.js?v=0.4.0"></script>
+  <script src="./app.js?v=0.5.0"></script>
 </body>
 </html>

@@ -119,15 +119,19 @@ async function resolveINat(query){
     const json=await fetchJson(u.toString(),10000);
     const results=Array.isArray(json.results)?json.results:[];
     if(!results.length) return null;
-    const spider=results.find(x=>{
-      const iconic=String(x.iconic_taxon_name||"").toLowerCase();
-      return iconic==="arachnida" || String(x.rank||"").toLowerCase()==="species";
-    }) || results[0];
+    const normalized=String(query).trim().toLowerCase();
+    const hit=
+      results.find(x=>String(x.name||"").trim().toLowerCase()===normalized) ||
+      results.find(x=>String(x.preferred_common_name||"").trim().toLowerCase()===normalized) ||
+      results[0];
+
     return {
       query,
-      scientificName:spider.name || query,
-      inatTaxonId:spider.id || null,
-      commonName:spider.preferred_common_name || query,
+      scientificName:hit.name || query,
+      inatTaxonId:hit.id || null,
+      commonName:hit.preferred_common_name || query,
+      rank:hit.rank || null,
+      iconicTaxon:hit.iconic_taxon_name || null,
       resolver:"iNaturalist"
     };
   }catch(e){
@@ -194,7 +198,6 @@ async function queryTBIA(query,resolved){
   const u=new URL(API.tbia);
   if(resolved?.taxonID) u.searchParams.set("taxonID",resolved.taxonID);
   else u.searchParams.set("name",query);
-  u.searchParams.set("bioGroup","蜘蛛");
   u.searchParams.set("limit","300");
   const json=await fetchJson(u.toString(),12000);
   const data=Array.isArray(json.data)?json.data:(Array.isArray(json)?json:[]);
