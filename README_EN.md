@@ -1,129 +1,73 @@
-# FieldScout v0.9.0 — GitHub Pages Stable Edition
+# FieldScout v0.9.2 — TBN Integration
 
-FieldScout is a mobile-first biodiversity field scouting, trip-planning,
-navigation, and field-recording tool for Taiwan.
+**🚀 Open the App: <https://ychsiao-tw.github.io/FieldScout/>**
 
-This release is intended as the **final stable static edition before a future backend**.
+FieldScout is a mobile-first, local-first biodiversity field scouting, trip-planning, navigation, and field-recording PWA for Taiwan.
 
-## Local profiles
+It still runs as a **pure GitHub Pages app without a Firebase backend**.
 
-Users enter an email address when FieldScout opens.
+## Occurrence sources
 
-Within the same browser/device:
+v0.9.2 searches:
 
-- the same email opens the same trips, field records, photos, settings, and cache
-- different emails have independent local workspaces
+- TBIA
+- **Taiwan Biodiversity Network (TBN) Open API v2.6**
+- GBIF
+- iNaturalist
 
-This is **not authentication**. The email is only a local IndexedDB profile key.
-Cross-device synchronization requires a future backend.
+TBN records preserve dataset-level provenance and licensing metadata.
 
-## Major features
+## Taiwan Spider Society
 
-### Map and search
+TBN's official spider-citizen-science dataset is:
 
-- fixed split-screen map + list
-- marker ↔ list-card linking
-- Leaflet marker clustering
-- unrestricted taxa
-- TaiCOL / TBIA / GBIF / iNaturalist
-- simultaneous TBIA + GBIF + iNaturalist occurrence queries
-- deduplication and multi-source tags
-- taxonomy autocomplete
-- date/month/radius/source/basis/uncertainty/photo filters
-- sorting by distance, date, coordinate quality, or multi-source support
-- seasonal occurrence summary
-- candidate-site Ranking v2
+**TBN-DP 臺灣蛛式會社 (蜘蛛公民科學調查)**
 
-### Trips
+Dataset UUID:
 
-- multiple named trips
-- date, target taxon, status, notes
-- occurrence / candidate / custom map-center points
-- add-all filtered points
-- visit states
-- arrival time and arrival distance
-- Google Maps navigation
-- CSV / GeoJSON / GPX export
-- GPX waypoint import
-- GPS track recording + GPX export
+`3edadeb1-36e6-4dc0-9a4c-8c6ca9c44618`
 
-### Field records
+Records from this dataset receive both source tags:
 
-- IndexedDB persistence
-- create / edit / delete
-- specimen ID, count, taxon, microhabitat, method, notes
-- GPS and accuracy
-- local photos
-- batch collection-site mode
-- automatic specimen numbering
-- QC checks
-- CSV / GeoJSON
-- obscured-coordinate CSV export
+- `TBN`
+- `臺灣蛛式會社`
 
-### Dashboard
+and can be filtered separately.
 
-- trip count
-- trip-point count
-- visited points
-- field-record count
-- taxon count
-- median GPS accuracy
-- 12-month occurrence bar chart
-- QC summary
+Original Taiwan Spider Society site:
 
-### Backup / restore
+<https://spider.tbn.org.tw/>
 
-Complete JSON backup includes:
+TBN dataset:
 
-- profile
-- settings
-- trips
-- field records
-- local photos
-- occurrence cache
+<https://www.tbn.org.tw/dataset/3edadeb1-36e6-4dc0-9a4c-8c6ca9c44618>
 
-## Offline
+## Sensitive records
 
-Current offline support includes:
+FieldScout respects TBN Open API's public-data generalization and obscuring.
 
-- PWA shell caching
-- IndexedDB data
-- locally saved photos and occurrence cache
-- optional raster PMTiles basemap
+It does not attempt to reconstruct coordinates that TBN intentionally withholds or generalizes.
 
-A Taiwan PMTiles archive is intentionally not bundled.
+TBN records without public coordinates are not plotted.
 
-## Limitations
+## Export provenance
 
-Because this is still a pure GitHub Pages application:
+Occurrence CSV / GeoJSON now preserve:
 
-- TBIA may be affected by browser CORS
-- email profiles are not real authentication
-- no automatic cross-device synchronization
-- no shared projects
-- no cloud photos
-- no community database
-- no server-side sensitive-coordinate handling
-- no reliable server-side API aggregation
+- dataset UUID
+- dataset name
+- dataset URL
+- license
+- sensitive category
+- data-generalization flag
+- original source URLs
 
-These features are reserved for a future Firebase/backend release.
+## TBN result limit
 
-## Deployment
+TBN API v2.6 supports up to 1000 records per response.
 
-Deploy repository root through:
+The current static FieldScout release retrieves the first 1000 TBN records for a taxon and reports when more records exist. A future backend can implement robust pagination and caching.
 
-`Settings → Pages → Deploy from a branch → main → /(root)`
+## Other features
 
-## Future backend
-
-The next major architecture can add:
-
-- Firebase Authentication
-- Firestore synchronization
-- Cloud Storage
-- API proxy
-- shared projects
-- community records
-- private/public coordinate separation
-
-The current frontend field workflow can be retained.
+All previous v0.9.1 capabilities remain available, including split map/list view, map-to-list synchronization, clustering, multiple basemaps, local PMTiles, advanced filters, multiple trips, GPX, GPS tracks, local photos, QC, dashboard, and backup/restore.

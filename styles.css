@@ -96,3 +96,14 @@ label input,label select,label textarea{margin-top:4px}
 
 .occ-marker-wrap{background:transparent;border:0}
 .occ-marker-dot{display:block;width:14px;height:14px;border-radius:50%;background:#111827;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+
+/* v0.9.1 map/list UX */
+.leaflet-popup-content{margin:11px 12px;min-width:190px}
+.popup-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.popup-actions a,.popup-actions button{
+  display:inline-flex;align-items:center;justify-content:center;
+  text-decoration:none;color:var(--text);background:#fff;
+  border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:12px
+}
+.popup-actions .popup-nav{background:#111827;color:#fff;border-color:#111827}
+.layer-attribution-note{font-size:11px;color:var(--muted);line-height:1.45}

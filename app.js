@@ -4,7 +4,12 @@ import {taxonomy,occurrences} from "./api.js";
 import {rankCandidates} from "./ranking.js";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const state={profile:null,settings:null,map:null,cluster:null,tripLayer:null,me:null,currentPos:null,taxon:null,allRecords:[],filtered:[],markerMap:new Map(),candidates:[],trips:[],activeTrip:null,records:[],batchSite:null,recordGps:null,track:[],trackWatch:null,offlineLayer:null};
+const state={
+  profile:null,settings:null,map:null,cluster:null,tripLayer:null,me:null,currentPos:null,
+  taxon:null,allRecords:[],filtered:[],markerMap:new Map(),candidates:[],
+  trips:[],activeTrip:null,records:[],batchSite:null,recordGps:null,track:[],trackWatch:null,
+  baseLayers:{},activeBaseLayer:null,offlineLayer:null,offlineArchive:null
+};
 const setStatus=t=>$("#status").textContent=t;
 
 async function boot(){
@@ -29,7 +34,7 @@ async function openProfile(){
   $("#profileGate").classList.add("hidden");$("#app").classList.remove("hidden");$("#profileLabel").textContent=email;
   $("#profileSummary").innerHTML=`${esc(email)}<br><span class="meta">本機 profile ID：${esc(id)}</span>`;
   $("#specimenPrefix").value=state.settings.specimenPrefix||"FS";$("#specimenCounter").value=state.settings.specimenCounter||1;
-  if(!state.map)initMap();
+  if(!state.map) await initMap();
   renderAll();
 }
 async function loadProfileData(){
@@ -104,7 +109,10 @@ function setupStatic(){
   $("#trackStartBtn").onclick=startTrack;$("#trackStopBtn").onclick=stopTrack;$("#trackExportBtn").onclick=()=>downloadText("fieldscout_track.gpx","application/gpx+xml",gpxTrack(state.track));
   $("#batchSiteBtn").onclick=toggleBatchSite;$("#recordGpsBtn").onclick=captureRecordGps;$("#useBatchGpsBtn").onclick=useBatchGps;$("#nextSpecimenBtn").onclick=nextSpecimen;
   $("#recordForm").onsubmit=saveRecord;$("#cancelEditBtn").onclick=resetRecordForm;$("#recordsCsvBtn").onclick=exportRecordsCsv;$("#recordsGeojsonBtn").onclick=exportRecordsGeoJSON;$("#recordsSensitiveCsvBtn").onclick=exportSensitiveCsv;
-  $("#saveSpecimenSettingsBtn").onclick=saveSpecimenSettings;$("#backupBtn").onclick=exportBackup;$("#restoreInput").onchange=restoreBackup;
+  $("#saveSpecimenSettingsBtn").onclick=saveSpecimenSettings;
+  $("#offlinePmtilesInput").onchange=importOfflinePmtiles;
+  $("#removeOfflineMapBtn").onclick=removeOfflineMap;
+  $("#backupBtn").onclick=exportBackup;$("#restoreInput").onchange=restoreBackup;
   $("#switchProfileBtn").onclick=switchProfile;$("#profileBtn").onclick=()=>switchTab("settings");$("#deleteProfileBtn").onclick=deleteProfile;
   $("#modalClose").onclick=()=>$("#modal").classList.add("hidden");$("#modal").onclick=e=>{if(e.target===$("#modal"))$("#modal").classList.add("hidden")};
   window.addEventListener("online",()=>$("#netBadge").textContent="ONLINE");window.addEventListener("offline",()=>$("#netBadge").textContent="OFFLINE");
@@ -115,20 +123,144 @@ function switchTab(name){
   if(name==="dashboard")renderDashboard();if(name==="settings")renderOfflineInfo();
 }
 
-function initMap(){
+async function initMap(){
   state.map=L.map("map",{zoomControl:false}).setView([23.7,121],7);
-  state.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(state.map);
-  state.cluster=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true});state.cluster.addTo(state.map);
-  state.tripLayer=L.layerGroup().addTo(state.map);L.control.zoom({position:"topright"}).addTo(state.map);
+
+  state.baseLayers.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>'
+  });
+
+  state.baseLayers.topo=L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{
+    maxZoom:17,
+    attribution:'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org/" target="_blank">OpenTopoMap</a> (CC-BY-SA)'
+  });
+
+  state.baseLayers.cyclosm=L.tileLayer("https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",{
+    maxZoom:20,
+    attribution:'&copy; OpenStreetMap contributors | <a href="https://www.cyclosm.org/" target="_blank">CyclOSM</a>'
+  });
+
+  state.activeBaseLayer=state.baseLayers.osm;
+  state.activeBaseLayer.addTo(state.map);
+
+  state.cluster=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true});
+  state.cluster.addTo(state.map);
+  state.tripLayer=L.layerGroup().addTo(state.map);
+  L.control.zoom({position:"topright"}).addTo(state.map);
+
+  await restoreOfflineMap();
+}
+
+async function buildOfflineLayer(file,name="offline.pmtiles"){
+  if(!window.pmtiles?.PMTiles || !window.pmtiles?.FileSource || !window.pmtiles?.leafletRasterLayer){
+    throw new Error("PMTiles library 未載入。");
+  }
+  const realFile=file instanceof File
+    ? file
+    : new File([file],name,{type:"application/octet-stream",lastModified:Date.now()});
+  const source=new window.pmtiles.FileSource(realFile);
+  const archive=new window.pmtiles.PMTiles(source);
+
+  // Reading the header validates that the archive is a PMTiles file before
+  // creating the Leaflet layer.
+  const header=await archive.getHeader();
+  const layer=window.pmtiles.leafletRasterLayer(archive,{
+    attribution:"Offline raster PMTiles"
+  });
+
+  state.offlineArchive={
+    name:realFile.name,
+    size:realFile.size,
+    header
+  };
+  state.offlineLayer=layer;
+  state.baseLayers.offline=layer;
+  return layer;
+}
+
+async function restoreOfflineMap(){
+  if(!state.profile)return;
   try{
-    const url="./offline/taiwan.pmtiles";
-    if(window.pmtiles?.PMTiles&&window.pmtiles?.leafletRasterLayer){const p=new window.pmtiles.PMTiles(url);state.offlineLayer=window.pmtiles.leafletRasterLayer(p,{attribution:"Offline PMTiles"})}
-  }catch(_){}
+    const saved=await get("offlineMaps",`${state.profile.id}:offline`);
+    if(!saved?.blob)return;
+    await buildOfflineLayer(saved.blob,saved.name||"offline.pmtiles");
+  }catch(e){
+    console.warn("Offline PMTiles restore failed",e);
+    state.offlineLayer=null;
+    state.baseLayers.offline=null;
+  }
 }
+
+async function importOfflinePmtiles(e){
+  const file=e.target.files?.[0];
+  if(!file)return;
+  if(!file.name.toLowerCase().endsWith(".pmtiles")){
+    setStatus("請選擇 .pmtiles 檔案。");
+    e.target.value="";
+    return;
+  }
+
+  setStatus(`正在檢查離線地圖：${file.name}…`);
+  try{
+    await buildOfflineLayer(file,file.name);
+    await put("offlineMaps",{
+      id:`${state.profile.id}:offline`,
+      profileId:state.profile.id,
+      name:file.name,
+      size:file.size,
+      blob:file,
+      savedAt:new Date().toISOString()
+    });
+    $("#basemapSelect").value="offline";
+    selectBasemap("offline");
+    renderOfflineInfo();
+    setStatus(`離線 PMTiles 已儲存：${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`);
+  }catch(err){
+    console.error(err);
+    state.offlineLayer=null;
+    state.baseLayers.offline=null;
+    $("#basemapSelect").value="osm";
+    selectBasemap("osm");
+    setStatus("無法載入此 PMTiles。請確認它是 raster PMTiles："+err.message);
+  }finally{
+    e.target.value="";
+  }
+}
+
+async function removeOfflineMap(){
+  if(!state.profile)return;
+  if(!confirm("移除此 Local Profile 儲存的離線 PMTiles？"))return;
+  if(state.offlineLayer && state.map.hasLayer(state.offlineLayer)){
+    state.map.removeLayer(state.offlineLayer);
+  }
+  await del("offlineMaps",`${state.profile.id}:offline`);
+  state.offlineLayer=null;
+  state.offlineArchive=null;
+  state.baseLayers.offline=null;
+  $("#basemapSelect").value="osm";
+  selectBasemap("osm");
+  renderOfflineInfo();
+  setStatus("離線地圖已移除。");
+}
+
 function selectBasemap(kind){
-  if(kind==="offline"&&state.offlineLayer){if(state.map.hasLayer(state.osm))state.map.removeLayer(state.osm);state.offlineLayer.addTo(state.map);setStatus("已切換 Offline PMTiles。")}
-  else{if(state.offlineLayer&&state.map.hasLayer(state.offlineLayer))state.map.removeLayer(state.offlineLayer);if(!state.map.hasLayer(state.osm))state.osm.addTo(state.map);if(kind==="offline")setStatus("尚未放入 offline/taiwan.pmtiles。")}
+  let next=state.baseLayers[kind];
+  if(kind==="offline"&&!next){
+    $("#basemapSelect").value="osm";
+    next=state.baseLayers.osm;
+    setStatus("尚未匯入離線 PMTiles。請到「設定 → 離線地圖」匯入 .pmtiles。");
+    switchTab("settings");
+  }
+
+  if(state.activeBaseLayer && state.map.hasLayer(state.activeBaseLayer)){
+    state.map.removeLayer(state.activeBaseLayer);
+  }
+
+  state.activeBaseLayer=next||state.baseLayers.osm;
+  if(!state.map.hasLayer(state.activeBaseLayer))state.activeBaseLayer.addTo(state.map);
 }
+
 function locate(zoom){
   navigator.geolocation.getCurrentPosition(p=>{state.currentPos={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy};if(state.me)state.map.removeLayer(state.me);state.me=L.circleMarker([state.currentPos.lat,state.currentPos.lon],{radius:9,weight:3}).addTo(state.map);if(zoom)state.map.setView([state.currentPos.lat,state.currentPos.lon],14);applyFilters();setStatus(`GPS ±${Math.round(state.currentPos.accuracy)} m`)},e=>setStatus("GPS："+e.message),{enableHighAccuracy:true,timeout:15000});
 }
@@ -138,7 +270,7 @@ async function autocomplete(q){
 }
 async function searchTaxon(){
   const q=$("#taxonInput").value.trim();if(!q)return;
-  $("#searchBtn").disabled=true;setStatus("正在同時查詢 TBIA、GBIF、iNaturalist…");
+  $("#searchBtn").disabled=true;setStatus("正在同時查詢 TBIA、TBN、GBIF、iNaturalist…");
   try{
     const t=await taxonomy(q);state.taxon=t.best;renderTaxon();
     const o=await occurrences(state.taxon);state.allRecords=o.records||[];
@@ -148,7 +280,8 @@ async function searchTaxon(){
       records:state.allRecords,savedAt:new Date().toISOString()
     });
     applyFilters();
-    setStatus(`整合 ${state.allRecords.length} 筆；TBIA ${o.sourceCounts.TBIA}、GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；不可用：${o.warnings.join(", ")}`:""}`);
+    const tbnNote=o.tbn?.truncated?`（TBN 共 ${o.tbn.total} 筆，本次讀取前 ${o.tbn.fetched} 筆）`:"";
+    setStatus(`整合 ${state.allRecords.length} 筆；TBIA ${o.sourceCounts.TBIA}、TBN ${o.sourceCounts.TBN}${o.sourceCounts["臺灣蛛式會社"]?`〔蛛式會社 ${o.sourceCounts["臺灣蛛式會社"]}〕`:""}${tbnNote}、GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；不可用：${o.warnings.join(", ")}`:""}`);
   }catch(e){
     const caches=await byProfile("cache",state.profile.id);
     const key=q.toLowerCase();
@@ -165,7 +298,14 @@ async function searchTaxon(){
   }finally{$("#searchBtn").disabled=false}
 }
 function renderTaxon(){
-  const x=state.taxon;$("#taxonCard").classList.remove("hidden");$("#taxonCard").innerHTML=`<strong>${esc(x.commonName||x.scientificName)}</strong><div><i>${esc(x.scientificName)}</i></div><div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div><div class="source-tags">${(x.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>`
+  const x=state.taxon;
+  $("#taxonCard").classList.remove("hidden");
+  $("#taxonCard").innerHTML=`
+    <strong>${esc(x.commonName||x.scientificName)}</strong>
+    <div><i>${esc(x.scientificName)}</i></div>
+    <div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div>
+    ${x.tbnTaxonGroup?`<div class="meta">TBN 類群：${esc(x.tbnTaxonGroup)}${x.tbnSensitiveCategory?` · 敏感：${esc(x.tbnSensitiveCategory)}`:""}</div>`:""}
+    <div class="source-tags">${(x.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>`;
 }
 function applyFilters(){
   let l=[...state.allRecords];const st=$("#filterStart").value,en=$("#filterEnd").value,mo=+$("#filterMonth").value,src=$("#filterSource").value,bas=$("#filterBasis").value,unc=+$("#filterUncertainty").value,photo=$("#filterPhoto").checked,rad=+$("#filterRadius").value;
@@ -179,8 +319,20 @@ function renderOccurrences(){
   state.cluster.clearLayers();state.markerMap.clear();const bounds=[];
   for(const r of state.filtered){
     const icon=L.divIcon({className:"occ-marker-wrap",html:`<span class="occ-marker-dot"></span>`,iconSize:[18,18],iconAnchor:[9,9]});
-    const m=L.marker([r.lat,r.lon],{icon}).bindPopup(`<b>${esc(r.commonName||r.scientificName)}</b><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join("+"))}`);
-    m.on("click",()=>linkToCard(r.id));m.addTo(state.cluster);state.markerMap.set(r.id,m);bounds.push([r.lat,r.lon]);
+    const popupHtml=`
+      <b>${esc(r.commonName||r.scientificName)}</b><br>
+      <span class="meta"><i>${esc(r.scientificName||"")}</i><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join(" + "))}</span>
+      <div class="popup-actions">
+        <a class="popup-nav" href="${googleMapsUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
+        <button type="button" data-popup-add>加入行程</button>
+      </div>`;
+    const m=L.marker([r.lat,r.lon],{icon}).bindPopup(popupHtml);
+    m.on("click",()=>linkToCard(r.id));
+    m.on("popupopen",e=>{
+      const btn=e.popup.getElement()?.querySelector("[data-popup-add]");
+      if(btn)btn.onclick=()=>addToTrip(r);
+    });
+    m.addTo(state.cluster);state.markerMap.set(r.id,m);bounds.push([r.lat,r.lon]);
   }
   if(bounds.length)state.map.fitBounds(bounds,{padding:[20,20],maxZoom:12});
   $("#resultList").innerHTML=state.filtered.length?state.filtered.slice(0,200).map((r,i)=>`<article class="card" data-card="${esc(r.id)}"><div class="card-top"><div><h3>${esc(r.commonName||r.scientificName)}</h3><div class="meta"><i>${esc(r.scientificName)}</i><br>${esc(r.locality||"")} · ${esc(r.eventDate||"")} ${r.uncertaintyM!=null?`· ±${Math.round(r.uncertaintyM)} m`:""}</div><div class="source-tags">${(r.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div></div></div><div class="actions"><button data-focus="${i}">地圖</button><button data-detail="${i}">詳情</button><a class="nav-link" target="_blank" href="${googleMapsUrl(r.lat,r.lon)}">Google Maps</a><button data-add="${i}">加入行程</button></div></article>`).join(""):`<div class="empty">無符合紀錄。</div>`;
@@ -189,7 +341,8 @@ function renderOccurrences(){
   $$("[data-add]").forEach(b=>b.onclick=()=>addToTrip(state.filtered[+b.dataset.add]));
 }
 function showOccurrenceDetail(r){
-  const links=(r.sourceUrls||[]).map(u=>`<a class="nav-link" href="${esc(u)}" target="_blank" rel="noopener">原始資料</a>`).join("");
+  const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
+  const links=uniqueLinks.map((u,i)=>`<a class="nav-link" href="${esc(u)}" target="_blank" rel="noopener">${i===0?"原始紀錄":`來源 ${i+1}`}</a>`).join("");
   showModal(`<h2>${esc(r.commonName||r.scientificName||"Occurrence")}</h2>
     <div class="summary-box">
       <div><i>${esc(r.scientificName||"")}</i></div>
@@ -201,13 +354,36 @@ function showOccurrenceDetail(r){
         Basis：${esc(r.basisOfRecord||"未提供")}<br>
         照片：${r.hasPhoto?"有":"未標示"}<br>
         來源：${esc((r.sources||[]).join(" + "))}
+        ${r.datasetName?`<br>資料集：${esc(r.datasetName)}`:""}
+        ${r.datasetUUID?`<br>Dataset UUID：${esc(r.datasetUUID)}`:""}
+        ${r.datasetAuthor?`<br>資料集作者：${esc(r.datasetAuthor)}`:""}
+        ${r.license?`<br>授權：${esc(r.license)}`:""}
+        ${r.recordedBy?`<br>記錄者：${esc(r.recordedBy)}`:""}
+        ${r.identificationVerificationStatus?`<br>鑑定狀態：${esc(r.identificationVerificationStatus)}`:""}
+        ${r.minimumElevationM!=null?`<br>海拔：${Math.round(r.minimumElevationM)} m`:""}
+        ${r.sensitiveCategory?`<br><strong>敏感資料：${esc(r.sensitiveCategory)}</strong>`:""}
+        ${r.dataGeneralizations?`<br>座標／資料已由來源端泛化或模糊化`:""}
       </div>
       <div class="button-row">${links}<a class="nav-link" href="${googleMapsUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps</a></div>
     </div>`);
 }
 
 function linkToCard(id){switchTab("explore");requestAnimationFrame(()=>highlightCard(id,true))}
-function highlightCard(id,scroll){document.querySelectorAll(".card.highlight").forEach(x=>x.classList.remove("highlight"));const c=document.querySelector(`[data-card="${CSS.escape(id)}"]`);if(c){c.classList.add("highlight");if(scroll)c.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(()=>c.classList.remove("highlight"),3000)}}
+function highlightCard(id,scroll){
+  document.querySelectorAll(".card.highlight").forEach(x=>x.classList.remove("highlight"));
+  const c=document.querySelector(`[data-card="${CSS.escape(id)}"]`);
+  if(!c)return;
+
+  c.classList.add("highlight");
+  if(scroll){
+    const pane=$("#contentPane");
+    const paneRect=pane.getBoundingClientRect();
+    const cardRect=c.getBoundingClientRect();
+    const target=pane.scrollTop+(cardRect.top-paneRect.top)-8;
+    pane.scrollTo({top:Math.max(0,target),behavior:"smooth"});
+  }
+  setTimeout(()=>c.classList.remove("highlight"),3200);
+}
 function renderSeason(){
   if(!state.allRecords.length){$("#seasonSummary").classList.add("hidden");return}
   const counts=Array(12).fill(0);state.allRecords.forEach(r=>{const m=+String(r.eventDate||"").slice(5,7);if(m>=1&&m<=12)counts[m-1]++});const max=Math.max(...counts),top=counts.map((v,i)=>[v,i+1]).sort((a,b)=>b[0]-a[0]).slice(0,3);
@@ -271,8 +447,35 @@ function exportRecordsCsv(){const rows=[["id","specimenId","count","taxon","micr
 function exportRecordsGeoJSON(){downloadText("fieldscout_records.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.records,r=>({specimenId:r.specimenId,count:r.count,taxon:r.taxon,microhabitat:r.microhabitat,method:r.method,notes:r.notes,accuracyM:r.accuracyM})),null,2))}
 function exportSensitiveCsv(){const radius=+prompt("座標模糊半徑（公尺）","1000")||1000,rows=[["specimenId","taxon","latitude","longitude","obscureRadiusM"]];state.records.forEach(r=>{if(r.lat==null)return;const p=obscurePoint(r.lat,r.lon,radius,`${state.profile.id}:${r.id}`);rows.push([r.specimenId,r.taxon,p.lat,p.lon,radius])});downloadText("fieldscout_records_obscured.csv","text/csv;charset=utf-8",toCSV(rows))}
 
-function exportSearchCsv(){const rows=[["id","scientificName","commonName","locality","eventDate","latitude","longitude","sources","basisOfRecord","uncertaintyM","hasPhoto"]];state.filtered.forEach(r=>rows.push([r.id,r.scientificName,r.commonName,r.locality,r.eventDate,r.lat,r.lon,(r.sources||[]).join("|"),r.basisOfRecord,r.uncertaintyM??"",r.hasPhoto]));downloadText("fieldscout_occurrences.csv","text/csv;charset=utf-8",toCSV(rows))}
-function exportSearchGeoJSON(){downloadText("fieldscout_occurrences.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.filtered,r=>({scientificName:r.scientificName,commonName:r.commonName,locality:r.locality,eventDate:r.eventDate,sources:r.sources,basisOfRecord:r.basisOfRecord,uncertaintyM:r.uncertaintyM,hasPhoto:r.hasPhoto})),null,2))}
+function exportSearchCsv(){
+  const rows=[[
+    "id","scientificName","commonName","locality","eventDate","latitude","longitude",
+    "sources","basisOfRecord","uncertaintyM","hasPhoto",
+    "datasetUUID","datasetName","datasetURL","license",
+    "sensitiveCategory","dataGeneralizations","sourceUrls"
+  ]];
+  state.filtered.forEach(r=>rows.push([
+    r.id,r.scientificName,r.commonName,r.locality,r.eventDate,r.lat,r.lon,
+    (r.sources||[]).join("|"),r.basisOfRecord,r.uncertaintyM??"",r.hasPhoto,
+    r.datasetUUID||"",r.datasetName||"",r.datasetURL||"",r.license||"",
+    r.sensitiveCategory||"",!!r.dataGeneralizations,(r.sourceUrls||[]).join("|")
+  ]));
+  downloadText("fieldscout_occurrences.csv","text/csv;charset=utf-8",toCSV(rows));
+}
+function exportSearchGeoJSON(){
+  downloadText("fieldscout_occurrences.geojson","application/geo+json",JSON.stringify(
+    geojsonPoints(state.filtered,r=>({
+      scientificName:r.scientificName,commonName:r.commonName,locality:r.locality,
+      eventDate:r.eventDate,sources:r.sources,basisOfRecord:r.basisOfRecord,
+      uncertaintyM:r.uncertaintyM,hasPhoto:r.hasPhoto,
+      datasetUUID:r.datasetUUID||"",datasetName:r.datasetName||"",
+      datasetURL:r.datasetURL||"",license:r.license||"",
+      sensitiveCategory:r.sensitiveCategory||"",
+      dataGeneralizations:!!r.dataGeneralizations,
+      sourceUrls:r.sourceUrls||[]
+    })),null,2
+  ));
+}
 
 async function saveSpecimenSettings(){state.settings.specimenPrefix=$("#specimenPrefix").value.trim()||"FS";state.settings.specimenCounter=Math.max(1,+$("#specimenCounter").value||1);await put("settings",state.settings);setStatus("編號設定已儲存。")}
 function renderDashboard(){
@@ -282,11 +485,21 @@ function renderDashboard(){
   const counts=Array(12).fill(0);state.allRecords.forEach(r=>{const m=+String(r.eventDate||"").slice(5,7);if(m>=1&&m<=12)counts[m-1]++});const mx=Math.max(1,...counts);$("#monthChart").innerHTML=counts.map((v,i)=>`<div class="month-bar-wrap"><div class="month-bar" title="${i+1}月: ${v}" style="height:${Math.max(2,100*v/mx)}%"></div><span class="month-label">${i+1}</span></div>`).join("");
   const issues=state.records.flatMap(r=>qcRecord(r,state.records).map(x=>`${r.specimenId}: ${x}`));$("#qcList").innerHTML=issues.length?`<strong>${issues.length} 個提醒</strong><div class="meta warning">${issues.slice(0,30).map(esc).join("<br>")}</div>`:`<strong class="ok">QC PASS</strong>`;
 }
-function renderOfflineInfo(){$("#offlineInfo").innerHTML=`<strong>${navigator.onLine?"目前 Online":"目前 Offline"}</strong><br><span class="meta">App shell 由 Service Worker 快取；Trips、records、photos 使用 IndexedDB。完整離線底圖需自行放置合法授權的 raster PMTiles 至 offline/taiwan.pmtiles。</span>`}
+function renderOfflineInfo(){
+  const offline=state.offlineArchive;
+  $("#offlineInfo").innerHTML=`
+    <strong>${navigator.onLine?"目前 Online":"目前 Offline"}</strong><br>
+    <span class="meta">
+      App shell、Trips、records、photos 使用本機快取／IndexedDB。<br>
+      ${offline
+        ? `離線地圖：${esc(offline.name)} · ${(offline.size/1024/1024).toFixed(1)} MB · 已可使用`
+        : "離線地圖：尚未匯入。請選擇一個 raster .pmtiles 檔。"}
+    </span>`;
+}
 
 async function exportBackup(){
   const photos=(await byProfile("photos",state.profile.id));const photoData=[];for(const p of photos){const b64=await blobToBase64(p.blob);photoData.push({...p,blob:null,dataUrl:b64})}
-  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.9.0",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,exportedAt:new Date().toISOString()},null,2))
+  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.9.1",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,offlineMap:state.offlineArchive?{name:state.offlineArchive.name,size:state.offlineArchive.size,note:"PMTiles binary is not embedded in JSON backup; re-import it separately."}:null,exportedAt:new Date().toISOString()},null,2))
 }
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 async function dataUrlToBlob(url){return await (await fetch(url)).blob()}

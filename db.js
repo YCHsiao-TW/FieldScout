@@ -1,6 +1,6 @@
 const DB_NAME="FieldScoutDB";
-const DB_VERSION=1;
-const STORES=["profiles","settings","trips","records","photos","cache"];
+const DB_VERSION=2;
+const STORES=["profiles","settings","trips","records","photos","cache","offlineMaps"];
 
 function openDb(){
   return new Promise((resolve,reject)=>{
@@ -66,7 +66,7 @@ export async function byProfile(store,profileId){
   return (await all(store)).filter(x=>x.profileId===profileId);
 }
 export async function deleteProfileData(profileId){
-  for(const store of ["settings","trips","records","photos","cache"]){
+  for(const store of ["settings","trips","records","photos","cache","offlineMaps"]){
     const items=await all(store);
     for(const x of items.filter(v=>v.profileId===profileId)) await del(store,x.id);
   }
