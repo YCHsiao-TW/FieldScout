@@ -7,148 +7,317 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout</title>
+  <title>FieldScout v0.9.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <main id="app">
+  <section id="profileGate" class="profile-gate">
+    <div class="gate-card">
+      <div class="eyebrow">FIELD DATA • LOCAL-FIRST • GITHUB PAGES</div>
+      <h1>FieldScout</h1>
+      <p>輸入電子郵件以開啟本機資料空間。相同瀏覽器中，相同 email 會開啟同一份 Trips、採集紀錄與設定。</p>
+      <label>電子郵件
+        <input id="profileEmail" type="email" autocomplete="email" placeholder="you@example.com">
+      </label>
+      <button id="openProfileBtn" class="primary big">開啟 FieldScout</button>
+      <p id="profileError" class="error"></p>
+      <div class="privacy-note">這不是帳號登入。Email 只作為本機 IndexedDB 的 profile key，不會送到 FieldScout 伺服器。換裝置不會自動同步。</div>
+    </div>
+  </section>
+
+  <main id="app" class="hidden">
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout</h1>
+        <h1>FieldScout <span class="version">v0.9.0 Static Stable</span></h1>
       </div>
-      <div id="netBadge" class="badge">ONLINE</div>
+      <div class="top-actions">
+        <span id="netBadge" class="badge">ONLINE</span>
+        <button id="profileBtn" class="profile-button">
+          <span id="profileLabel">Profile</span>
+        </button>
+      </div>
     </header>
 
-    <section id="mapWrap">
-      <div id="map"></div>
-      <button id="locateBtn" class="map-btn locate" aria-label="定位">◎</button>
-      <div id="gpsPanel" class="gps-panel hidden">
-        <strong id="gpsText">GPS</strong>
-        <span id="gpsAcc"></span>
-      </div>
-    </section>
+    <nav class="tabs">
+      <button class="tab active" data-tab="explore">探索</button>
+      <button class="tab" data-tab="trips">行程</button>
+      <button class="tab" data-tab="records">採集</button>
+      <button class="tab" data-tab="dashboard">摘要</button>
+      <button class="tab" data-tab="settings">設定</button>
+    </nav>
 
-    <section class="sheet">
-      <div class="search-row">
-        <input id="taxonInput" type="search" placeholder="輸入物種學名或中文名" autocomplete="off" value="">
-        <button id="searchBtn">搜尋</button>
-      </div>
-      <div class="quick-row">
-        <button data-mode="nearby" class="chip active">附近紀錄</button>
-        <button data-mode="target" class="chip">候選探點</button>
-        <button data-mode="trip" class="chip">今日行程</button>
-        <button data-mode="record" class="chip">採集紀錄</button>
-      </div>
-      <div id="status" class="status">輸入任一物種學名或中文名；搜尋會先嘗試 TBIA，必要時自動改用 TaiCOL、GBIF 與 iNaturalist。</div>
-
-      <section id="panel-nearby" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>物種紀錄</h2>
-            <p id="resultMeta">尚未查詢</p>
-          </div>
-          <div class="panel-tools">
-            <select id="radiusSelect" aria-label="附近半徑">
-              <option value="all" selected>全臺</option>
-              <option value="1">1 km</option>
-              <option value="5">5 km</option>
-              <option value="10">10 km</option>
-              <option value="25">25 km</option>
-            </select>
-            <button id="addAllPointsBtn" class="small-btn" type="button">全部加入行程</button>
-          </div>
-        </div>
-        <div class="export-row export-row-top">
-          <button id="searchGeojsonBtn" type="button">搜尋點位 → GeoJSON</button>
-          <button id="searchCsvBtn" type="button">搜尋點位 → CSV</button>
-        </div>
-        <div id="recordList" class="cards"></div>
-      </section>
-
-      <section id="panel-target" class="panel hidden">
-        <div class="panel-head">
-          <div>
-            <h2>候選探點</h2>
-            <p>以紀錄密度、近期性與距離做可解釋排序</p>
-          </div>
-          <button id="rankBtn" class="small-btn">重新排名</button>
-        </div>
-        <div id="candidateList" class="cards"></div>
-      </section>
-
-      <section id="panel-trip" class="panel hidden">
-        <div class="panel-head">
-          <div>
-            <h2>今日行程</h2>
-            <p>資料只存在這支手機瀏覽器</p>
-          </div>
-          <button id="clearTripBtn" class="small-btn danger">清空</button>
-        </div>
-        <div id="tripList" class="cards"></div>
-        <div class="export-row">
-          <button id="geojsonBtn">匯出 GeoJSON</button>
-          <button id="csvBtn">匯出 CSV</button>
+    <div id="workspace" class="workspace">
+      <section id="mapWrap">
+        <div id="map"></div>
+        <button id="locateBtn" class="map-fab">◎</button>
+        <button id="customPointBtn" class="map-fab add-point">＋</button>
+        <div class="map-tools">
+          <select id="basemapSelect">
+            <option value="osm">OSM</option>
+            <option value="offline">Offline PMTiles</option>
+          </select>
         </div>
       </section>
 
-      <section id="panel-record" class="panel hidden">
-        <form id="fieldForm">
+      <section id="contentPane" class="content-pane">
+        <div id="status" class="status">準備完成。</div>
+
+        <!-- Explore -->
+        <section id="tab-explore" class="tab-panel">
+          <div class="search-row">
+            <div class="search-box">
+              <input id="taxonInput" type="search" placeholder="輸入學名或中文名" autocomplete="off">
+              <div id="autocomplete" class="autocomplete hidden"></div>
+            </div>
+            <button id="searchBtn" class="primary">搜尋</button>
+          </div>
+
+          <div id="taxonCard" class="taxon-card hidden"></div>
+
+          <details class="control-block">
+            <summary>進階篩選與排序</summary>
+            <div class="filter-grid">
+              <label>起始日期<input id="filterStart" type="date"></label>
+              <label>結束日期<input id="filterEnd" type="date"></label>
+              <label>月份
+                <select id="filterMonth">
+                  <option value="">全部</option>
+                  <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                  <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                  <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                  <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                </select>
+              </label>
+              <label>距離
+                <select id="filterRadius">
+                  <option value="">全臺</option>
+                  <option value="1">1 km</option><option value="5">5 km</option>
+                  <option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option>
+                </select>
+              </label>
+              <label>來源
+                <select id="filterSource">
+                  <option value="">全部</option>
+                  <option value="TBIA">TBIA</option><option value="GBIF">GBIF</option><option value="iNaturalist">iNaturalist</option>
+                </select>
+              </label>
+              <label>Basis
+                <select id="filterBasis">
+                  <option value="">全部</option>
+                  <option value="OBSERVATION">Observation</option>
+                  <option value="PRESERVED_SPECIMEN">Specimen</option>
+                </select>
+              </label>
+              <label>最大座標誤差 (m)<input id="filterUncertainty" type="number" min="0" placeholder="500"></label>
+              <label>排序
+                <select id="sortMode">
+                  <option value="distance">距離最近</option>
+                  <option value="date_desc">最新紀錄</option>
+                  <option value="date_asc">最舊紀錄</option>
+                  <option value="uncertainty">座標精度最好</option>
+                  <option value="source_count">多來源支持</option>
+                </select>
+              </label>
+              <label class="check-label"><input id="filterPhoto" type="checkbox"> 有照片</label>
+            </div>
+            <div class="button-row">
+              <button id="applyFiltersBtn">套用</button>
+              <button id="resetFiltersBtn">清除</button>
+            </div>
+          </details>
+
+          <div id="seasonSummary" class="season-box hidden"></div>
+
+          <div class="section-head">
+            <div><h2>物種紀錄</h2><p id="resultMeta">尚未搜尋</p></div>
+            <div class="button-row compact">
+              <button id="addAllBtn">全部加入行程</button>
+              <button id="searchCsvBtn">CSV</button>
+              <button id="searchGeojsonBtn">GeoJSON</button>
+            </div>
+          </div>
+          <div id="resultList" class="cards"></div>
+
+          <div class="section-head">
+            <div><h2>候選探點</h2><p>Ranking v2</p></div>
+            <button id="rerankBtn">重新排名</button>
+          </div>
+          <div id="candidateList" class="cards"></div>
+        </section>
+
+        <!-- Trips -->
+        <section id="tab-trips" class="tab-panel hidden">
+          <div class="section-head">
+            <div><h2>Field Trips</h2><p>多行程保存</p></div>
+            <button id="newTripBtn" class="primary">新增行程</button>
+          </div>
           <div class="two-col">
-            <label>標本號
-              <input id="specimenId" required placeholder="ABARA05001">
+            <label>目前行程<select id="tripSelect"></select></label>
+            <label>目標物種<input id="tripTargetTaxon" placeholder="可留空"></label>
+          </div>
+          <div class="two-col">
+            <label>日期<input id="tripDate" type="date"></label>
+            <label>狀態
+              <select id="tripStatus">
+                <option value="planned">Planned</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
             </label>
-            <label>數量
-              <input id="count" type="number" min="1" value="1">
+          </div>
+          <label>行程備註<textarea id="tripNotes" rows="2"></textarea></label>
+          <div class="button-row">
+            <button id="saveTripMetaBtn">儲存行程資訊</button>
+            <button id="deleteTripBtn" class="danger">刪除行程</button>
+          </div>
+
+          <div class="section-head">
+            <div><h2>點位</h2><p id="tripMeta"></p></div>
+            <div class="button-row compact">
+              <button id="tripCsvBtn">CSV</button>
+              <button id="tripGeojsonBtn">GeoJSON</button>
+              <button id="tripGpxBtn">GPX</button>
+              <label class="file-button">匯入 GPX<input id="gpxImport" type="file" accept=".gpx,application/gpx+xml"></label>
+            </div>
+          </div>
+          <div id="tripPointList" class="cards"></div>
+
+          <div class="track-box">
+            <div><strong>GPS Track</strong><div id="trackMeta" class="meta">尚未開始</div></div>
+            <div class="button-row compact">
+              <button id="trackStartBtn">開始</button>
+              <button id="trackStopBtn" disabled>停止</button>
+              <button id="trackExportBtn">GPX</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Records -->
+        <section id="tab-records" class="tab-panel hidden">
+          <div class="section-head">
+            <div><h2>採集／觀察紀錄</h2><p>可批次沿用同一採集點 GPS</p></div>
+            <button id="batchSiteBtn">開始採集點</button>
+          </div>
+
+          <div id="batchSiteBox" class="batch-box hidden"></div>
+
+          <form id="recordForm">
+            <input id="recordId" type="hidden">
+            <div class="two-col">
+              <label>標本／紀錄號
+                <div class="inline-field">
+                  <input id="specimenId" required>
+                  <button id="nextSpecimenBtn" type="button">自動編號</button>
+                </div>
+              </label>
+              <label>數量<input id="recordCount" type="number" min="1" value="1"></label>
+            </div>
+            <label>物種<input id="recordTaxon" placeholder="Scientific name / 中文名"></label>
+            <div class="two-col">
+              <label>微棲地
+                <select id="microhabitat">
+                  <option>地表／落葉層</option><option>草叢</option><option>石下</option><option>樹幹</option>
+                  <option>溪流邊</option><option>水域</option><option>建物</option><option>其他</option>
+                </select>
+              </label>
+              <label>方法
+                <select id="method">
+                  <option>手採</option><option>sweeping</option><option>beating</option><option>pitfall</option>
+                  <option>目視觀察</option><option>相機</option><option>其他</option>
+                </select>
+              </label>
+            </div>
+            <label>備註<textarea id="recordNotes" rows="3"></textarea></label>
+
+            <div class="gps-box">
+              <div><strong id="recordGpsText">尚未取得 GPS</strong><div id="recordGpsAcc" class="meta"></div></div>
+              <div class="button-row compact">
+                <button id="recordGpsBtn" type="button">取得 GPS</button>
+                <button id="useBatchGpsBtn" type="button">使用採集點 GPS</button>
+              </div>
+            </div>
+
+            <label>照片（本機保存於 IndexedDB）
+              <input id="recordPhotos" type="file" accept="image/*" multiple>
             </label>
+
+            <div class="button-row">
+              <button id="saveRecordBtn" class="primary" type="submit">儲存紀錄</button>
+              <button id="cancelEditBtn" type="button" class="hidden">取消編輯</button>
+            </div>
+          </form>
+
+          <div class="section-head">
+            <div><h2>我的紀錄</h2><p id="recordMeta"></p></div>
+            <div class="button-row compact">
+              <button id="recordsCsvBtn">CSV</button>
+              <button id="recordsGeojsonBtn">GeoJSON</button>
+              <button id="recordsSensitiveCsvBtn">模糊座標 CSV</button>
+            </div>
           </div>
-          <label>物種
-            <input id="recordTaxon" placeholder="Scientific name">
-          </label>
-          <label>微棲地
-            <select id="microhabitat">
-              <option>地表／落葉層</option>
-              <option>草叢</option>
-              <option>石下</option>
-              <option>樹幹</option>
-              <option>溪流邊</option>
-              <option>其他</option>
-            </select>
-          </label>
-          <label>採集方法
-            <select id="method">
-              <option>手採</option>
-              <option>sweeping</option>
-              <option>beating</option>
-              <option>pitfall</option>
-              <option>其他</option>
-            </select>
-          </label>
-          <label>備註
-            <textarea id="notes" rows="3" placeholder="環境、行為、天氣……"></textarea>
-          </label>
-          <div class="gps-capture">
-            <span id="captureGpsText">尚未記錄 GPS</span>
-            <button type="button" id="captureGpsBtn" class="small-btn">取得 GPS</button>
+          <div id="recordList" class="cards"></div>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="tab-dashboard" class="tab-panel hidden">
+          <h2>Field Dashboard</h2>
+          <div id="dashboardCards" class="dashboard-grid"></div>
+          <div class="section-head"><div><h2>月份分布</h2><p>目前搜尋物種</p></div></div>
+          <div id="monthChart" class="month-chart"></div>
+          <div class="section-head"><div><h2>資料品質</h2><p>採集紀錄 QC</p></div></div>
+          <div id="qcList" class="summary-box"></div>
+        </section>
+
+        <!-- Settings -->
+        <section id="tab-settings" class="tab-panel hidden">
+          <h2>設定</h2>
+
+          <div class="summary-box">
+            <strong>目前 Local Profile</strong>
+            <div id="profileSummary" class="meta"></div>
           </div>
-          <div class="record-form-actions">
-            <button id="saveRecordBtn" class="primary wide" type="submit">儲存採集紀錄</button>
-            <button id="cancelEditBtn" class="small-btn wide hidden" type="button">取消編輯</button>
+
+          <h3>標本號自動編號</h3>
+          <div class="two-col">
+            <label>Prefix<input id="specimenPrefix" placeholder="ABARA"></label>
+            <label>下一號<input id="specimenCounter" type="number" min="1" value="1"></label>
           </div>
-        </form>
-        <div class="export-row record-export-row">
-          <button id="recordsGeojsonBtn" type="button">採集紀錄 → GeoJSON</button>
-          <button id="recordsCsvBtn" type="button">採集紀錄 → CSV</button>
-        </div>
-        <div id="savedList" class="cards"></div>
+          <button id="saveSpecimenSettingsBtn">儲存編號設定</button>
+
+          <h3>離線</h3>
+          <div id="offlineInfo" class="summary-box"></div>
+
+          <h3>完整備份／還原</h3>
+          <div class="button-row">
+            <button id="backupBtn">匯出 Backup JSON</button>
+            <label class="file-button">匯入 Backup<input id="restoreInput" type="file" accept=".json,application/json"></label>
+          </div>
+
+          <h3>資料管理</h3>
+          <div class="button-row">
+            <button id="switchProfileBtn">切換 Profile</button>
+            <button id="deleteProfileBtn" class="danger">刪除此 Profile</button>
+          </div>
+        </section>
       </section>
-    </section>
+    </div>
   </main>
 
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <button id="modalClose" class="modal-close">×</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="./app.js?v=0.5.0"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+  <script type="module" src="./app.js?v=0.9.0"></script>
 </body>
 </html>

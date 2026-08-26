@@ -1,10 +1,9 @@
 {
-  "name": "FieldScout Taiwan Biodiversity",
+  "name": "FieldScout — Taiwan Biodiversity Field Tool",
   "short_name": "FieldScout",
+  "description": "Local-first biodiversity field scouting, trip planning and recording tool for Taiwan.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f3f4f6",
-  "theme_color": "#111827",
-  "icons": [],
-  "description": "Mobile-first biodiversity field scouting and collection-recording tool for Taiwan."
+  "background_color": "#f5f6f8",
+  "theme_color": "#111827"
 }
