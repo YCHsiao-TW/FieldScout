@@ -10,6 +10,45 @@ export function haversineKm(a,b){
   return 2*R*Math.asin(Math.sqrt(x));
 }
 export function googleMapsUrl(lat,lon){return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}`}
+export function googleMapsRouteUrl(points){
+  const valid=(points||[])
+    .map(p=>({lat:Number(p.lat),lon:Number(p.lon)}))
+    .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+
+  if(!valid.length)return "";
+  if(valid.length===1)return googleMapsUrl(valid[0].lat,valid[0].lon);
+
+  const destination=valid[valid.length-1];
+  const waypoints=valid.slice(0,-1)
+    .map(p=>`${p.lat},${p.lon}`)
+    .join("|");
+
+  const u=new URL("https://www.google.com/maps/dir/");
+  u.searchParams.set("api","1");
+  u.searchParams.set("destination",`${destination.lat},${destination.lon}`);
+  u.searchParams.set("travelmode","driving");
+  if(waypoints)u.searchParams.set("waypoints",waypoints);
+  return u.toString();
+}
+
+export function googleMapsRouteSegments(points,maxStops=10){
+  const valid=(points||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+  if(!valid.length)return [];
+  if(valid.length<=maxStops)return [valid];
+
+  const segments=[];
+  let start=0;
+  while(start<valid.length){
+    const end=Math.min(valid.length,start+maxStops);
+    const seg=valid.slice(start,end);
+    if(start>0 && valid[start-1]){
+      seg.unshift(valid[start-1]);
+    }
+    segments.push(seg);
+    start=end;
+  }
+  return segments;
+}
 export function downloadText(name,type,text){
   const a=document.createElement("a"),url=URL.createObjectURL(new Blob([text],{type}));
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);

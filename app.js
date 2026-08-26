@@ -1,5 +1,5 @@
 import {put,get,del,byProfile,deleteProfileData,all} from "./db.js";
-import {hashEmail,esc,haversineKm,googleMapsUrl,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js";
 import {taxonomy,occurrences} from "./api.js";
 import {rankCandidates} from "./ranking.js";
 
@@ -533,25 +533,33 @@ function renderTrips(){
   $("#tripDate").value=t?.date||"";
   $("#tripStatus").value=t?.status||"planned";
   $("#tripNotes").value=t?.notes||"";
-  $("#tripMeta").textContent=t?`${pts.length} 點 · ${t.status||"planned"}`:"尚未選擇";
+  $("#tripMeta").textContent=t?`${pts.length} 個採集目標 · ${t.status||"planned"}`:"尚未選擇";
+
+  renderRoutePlanner(t);
 
   $("#tripPointList").innerHTML=pts.length
     ? pts.map((p,i)=>`
       <article class="card">
-        <h3>${i+1}. ${esc(p.name||"Point")}</h3>
-        <div class="meta">
-          ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}
-          · ${esc(p.source||"")}
-          · ${esc(p.visitStatus||"unvisited")}
+        <div class="card-top">
+          <div>
+            <h3>${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}</h3>
+            <div class="meta">
+              ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}
+              · ${esc(p.source||"")}
+              · ${esc(p.visitStatus||"unvisited")}
+            </div>
+          </div>
         </div>
         <div class="actions">
           <button data-tfocus="${i}">地圖</button>
-          <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(p.lat,p.lon)}">Google Maps</a>
+          <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(p.lat,p.lon)}">導航此點</a>
           <button data-tvisit="${i}">狀態</button>
+          <button data-tup="${i}">上移</button>
+          <button data-tdown="${i}">下移</button>
           <button data-tremove="${i}">移除</button>
         </div>
       </article>`).join("")
-    : `<div class="empty">尚無點位。</div>`;
+    : `<div class="empty">先從「探索」頁把想去的點加入行程。</div>`;
 
   state.tripLayer.clearLayers();
   if(pts.length>1){
@@ -559,7 +567,7 @@ function renderTrips(){
   }
   pts.forEach((p,i)=>{
     L.marker([Number(p.lat),Number(p.lon)])
-      .bindPopup(`${i+1}. ${esc(p.name||"Point")}`)
+      .bindPopup(`${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}`)
       .addTo(state.tripLayer);
   });
 
@@ -573,6 +581,24 @@ function renderTrips(){
     await saveTrip();
     renderTrips();
     setStatus("已從行程移除點位。");
+  });
+
+  $$("[data-tup]").forEach(b=>b.onclick=async()=>{
+    const i=+b.dataset.tup;
+    if(i<=0)return;
+    [pts[i-1],pts[i]]=[pts[i],pts[i-1]];
+    await saveTrip();
+    renderTrips();
+    setStatus("已調整路線順序。");
+  });
+
+  $$("[data-tdown]").forEach(b=>b.onclick=async()=>{
+    const i=+b.dataset.tdown;
+    if(i>=pts.length-1)return;
+    [pts[i],pts[i+1]]=[pts[i+1],pts[i]];
+    await saveTrip();
+    renderTrips();
+    setStatus("已調整路線順序。");
   });
 
   $$("[data-tvisit]").forEach(b=>b.onclick=async()=>{
@@ -590,6 +616,57 @@ function renderTrips(){
     await saveTrip();
     renderTrips();
   });
+}
+
+function renderRoutePlanner(t){
+  const box=$("#routePlannerCard");
+  const pts=t?.points||[];
+
+  if(!t||!pts.length){
+    box.innerHTML=`<div class="route-empty">加入採集目標後，這裡會生成導航路線。</div>`;
+    return;
+  }
+
+  const segments=googleMapsRouteSegments(pts,10);
+  const mainUrl=googleMapsRouteUrl(segments[0]);
+
+  const stopHtml=pts.map((p,i)=>`
+    <div class="route-stop">
+      <div class="route-index">${String.fromCharCode(65+(i%26))}</div>
+      <div>
+        <div class="route-stop-name">${esc(p.name||"Point")}</div>
+        <div class="route-stop-meta">${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)} · ${esc(p.visitStatus||"unvisited")}</div>
+      </div>
+    </div>`).join("");
+
+  const segmentHtml=segments.length>1
+    ? `<div class="route-segments">
+        ${segments.map((seg,i)=>`
+          <div class="route-segment">
+            <span>路線 ${i+1} · ${seg.length} 個點</span>
+            <a class="nav-link route-primary" target="_blank" rel="noopener" href="${googleMapsRouteUrl(seg)}">開啟 Google Maps</a>
+          </div>`).join("")}
+      </div>`
+    : "";
+
+  box.innerHTML=`
+    <div class="route-head">
+      <div>
+        <h3>${esc(t.name||"本次採集行程")}</h3>
+        <div class="route-count">${pts.length} 個採集目標 · 依目前排列順序導航</div>
+      </div>
+      ${segments.length===1
+        ? `<a class="nav-link route-primary" target="_blank" rel="noopener" href="${mainUrl}">
+             ${pts.length===1?"導航到此點":"開始多點導航"}
+           </a>`
+        : `<span class="meta">點位較多，已分成 ${segments.length} 段</span>`}
+    </div>
+    <div class="route-path">${stopHtml}</div>
+    ${segmentHtml}
+    <div class="meta">
+      Google Maps 會以目前位置作為起點；最後一個點為目的地，其餘依 FieldScout 的 A → B → C 順序作為中途點。
+      可用下方「上移／下移」調整採集順序。
+    </div>`;
 }
 
 async function addToTrip(r){

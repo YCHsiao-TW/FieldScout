@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.9.3</title>
+  <title>FieldScout v0.9.4</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.9.3 Trip Hotfix</span></h1>
+        <h1>FieldScout <span class="version">v0.9.4 Route Planner</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -159,37 +159,51 @@
         <!-- Trips -->
         <section id="tab-trips" class="tab-panel hidden">
           <div class="section-head">
-            <div><h2>Field Trips</h2><p>多行程保存</p></div>
-            <button id="newTripBtn" class="primary">新增行程</button>
-          </div>
-          <div class="two-col">
-            <label>目前行程<select id="tripSelect"></select></label>
-            <label>目標物種<input id="tripTargetTaxon" placeholder="可留空"></label>
-          </div>
-          <div class="two-col">
-            <label>日期<input id="tripDate" type="date"></label>
-            <label>狀態
-              <select id="tripStatus">
-                <option value="planned">Planned</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-              </select>
-            </label>
-          </div>
-          <label>行程備註<textarea id="tripNotes" rows="2"></textarea></label>
-          <div class="button-row">
-            <button id="saveTripMetaBtn">儲存行程資訊</button>
-            <button id="deleteTripBtn" class="danger">刪除行程</button>
+            <div>
+              <h2>本次採集行程</h2>
+              <p>從探索頁加入點位後，這裡會自動產生 Google Maps 路線</p>
+            </div>
+            <button id="newTripBtn">新增行程</button>
           </div>
 
-          <div class="section-head">
-            <div><h2>點位</h2><p id="tripMeta"></p></div>
-            <div class="button-row compact">
+          <div class="trip-toolbar">
+            <label>目前行程
+              <select id="tripSelect"></select>
+            </label>
+          </div>
+
+          <div id="routePlannerCard" class="route-planner-card">
+            <div class="route-empty">加入採集目標後，這裡會生成導航路線。</div>
+          </div>
+
+          <details class="control-block trip-details">
+            <summary>行程資訊與匯出</summary>
+            <div class="two-col">
+              <label>目標物種<input id="tripTargetTaxon" placeholder="可留空"></label>
+              <label>日期<input id="tripDate" type="date"></label>
+            </div>
+            <div class="two-col">
+              <label>狀態
+                <select id="tripStatus">
+                  <option value="planned">Planned</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </label>
+              <label>備註<input id="tripNotes" placeholder="行程備註"></label>
+            </div>
+            <div class="button-row">
+              <button id="saveTripMetaBtn">儲存資訊</button>
+              <button id="deleteTripBtn" class="danger">刪除行程</button>
               <button id="tripCsvBtn">CSV</button>
               <button id="tripGeojsonBtn">GeoJSON</button>
               <button id="tripGpxBtn">GPX</button>
               <label class="file-button">匯入 GPX<input id="gpxImport" type="file" accept=".gpx,application/gpx+xml"></label>
             </div>
+          </details>
+
+          <div class="section-head">
+            <div><h2>採集目標</h2><p id="tripMeta"></p></div>
           </div>
           <div id="tripPointList" class="cards"></div>
 
@@ -333,6 +347,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
-  <script type="module" src="./app.js?v=0.9.3"></script>
+  <script type="module" src="./app.js?v=0.9.4"></script>
 </body>
 </html>

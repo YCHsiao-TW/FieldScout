@@ -1,8 +1,12 @@
-# FieldScout v0.9.3 — Trip Hotfix
+# FieldScout v0.9.4 — Route Planner
 
 **🚀 直接開啟 App：<https://ychsiao-tw.github.io/FieldScout/>**
 
-## v0.9.3 修正
+## v0.9.4 行程介面
+
+行程頁改成以「本次採集路線」為核心。從探索頁加入 A、B、C 等採集目標後，FieldScout 會依加入／排列順序顯示 A → B → C，並自動產生 Google Maps 多點導航連結。點位過多時自動分段；每個點也保留單點導航。行程點可用「上移／下移」調整導航順序。
+
+## v0.9.4 修正
 
 修正所有「加入行程」入口：若尚未建立行程會自動建立今日行程；舊版行程資料會自動正規化；無效經緯度與重複點位會顯示明確提示。清單、marker popup、候選探點、全部加入與自訂點共用同一套安全流程。
 
@@ -10,7 +14,7 @@ FieldScout 是一套以手機為優先、Local-first 的臺灣生物多樣性野
 
 目前仍維持 **GitHub Pages / 無 Firebase backend**。
 
-## v0.9.3 新增資料來源
+## v0.9.4 新增資料來源
 
 Occurrence 搜尋現在整合：
 
@@ -124,7 +128,7 @@ FieldScout 靜態版目前每次 taxon search 讀取 TBN 前 1000 筆；如果 T
 
 ## 其他功能
 
-v0.9.3 仍包含：
+v0.9.4 仍包含：
 
 - Local email profile
 - IndexedDB
