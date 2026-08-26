@@ -150,3 +150,8 @@ label input,label select,label textarea{margin-top:4px}
   .route-head{flex-direction:column}
   .route-segment{align-items:flex-start;flex-direction:column}
 }
+
+.map-load-error{
+  height:100%;min-height:180px;display:grid;place-items:center;text-align:center;
+  padding:18px;color:var(--warn);background:#f7f8fa;font-size:13px
+}

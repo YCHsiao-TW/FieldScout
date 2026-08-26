@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js";
-import {taxonomy,occurrences} from "./api.js";
-import {rankCandidates} from "./ranking.js";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.5";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.5";
+import {taxonomy,occurrences} from "./api.js?v=0.9.5";
+import {rankCandidates} from "./ranking.js?v=0.9.5";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -24,18 +24,55 @@ function setupGate(){
 }
 async function openProfile(){
   const email=$("#profileEmail").value.trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ $("#profileError").textContent="請輸入有效電子郵件。";return}
-  const id=hashEmail(email),existing=await get("profiles",id);
-  state.profile=existing||{id,email,createdAt:new Date().toISOString()};
-  await put("profiles",{...state.profile,lastOpenedAt:new Date().toISOString()});
-  state.settings=await get("settings",`${id}:settings`)||{id:`${id}:settings`,profileId:id,specimenPrefix:"FS",specimenCounter:1};
-  await put("settings",state.settings);
-  await loadProfileData();
-  $("#profileGate").classList.add("hidden");$("#app").classList.remove("hidden");$("#profileLabel").textContent=email;
-  $("#profileSummary").innerHTML=`${esc(email)}<br><span class="meta">本機 profile ID：${esc(id)}</span>`;
-  $("#specimenPrefix").value=state.settings.specimenPrefix||"FS";$("#specimenCounter").value=state.settings.specimenCounter||1;
-  if(!state.map) await initMap();
-  renderAll();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    $("#profileError").textContent="請輸入有效電子郵件。";
+    return;
+  }
+
+  const btn=$("#openProfileBtn");
+  btn.disabled=true;
+  btn.textContent="正在開啟…";
+  $("#profileError").textContent="";
+
+  try{
+    const id=hashEmail(email),existing=await get("profiles",id);
+    state.profile=existing||{id,email,createdAt:new Date().toISOString()};
+    await put("profiles",{...state.profile,lastOpenedAt:new Date().toISOString()});
+
+    state.settings=
+      await get("settings",`${id}:settings`) ||
+      {id:`${id}:settings`,profileId:id,specimenPrefix:"FS",specimenCounter:1};
+
+    await put("settings",state.settings);
+    await loadProfileData();
+
+    // Enter the app before initializing optional map integrations.
+    $("#profileGate").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+    $("#profileLabel").textContent=email;
+    $("#profileSummary").innerHTML=
+      `${esc(email)}<br><span class="meta">本機 profile ID：${esc(id)}</span>`;
+    $("#specimenPrefix").value=state.settings.specimenPrefix||"FS";
+    $("#specimenCounter").value=state.settings.specimenCounter||1;
+
+    try{
+      if(!state.map)await initMap();
+    }catch(mapError){
+      console.error("Map initialization failed",mapError);
+      $("#map").innerHTML=
+        `<div class="map-load-error">地圖載入失敗，但 Local Profile 已成功開啟。<br><small>${esc(mapError.message||mapError)}</small></div>`;
+      setStatus("Local Profile 已開啟；地圖插件載入失敗，請重新整理或檢查網路。");
+    }
+
+    renderAll();
+  }catch(err){
+    console.error("Open profile failed",err);
+    $("#profileError").textContent=
+      `無法開啟本機資料：${err.message||err}`;
+  }finally{
+    btn.disabled=false;
+    btn.textContent="開啟 FieldScout";
+  }
 }
 async function loadProfileData(){
   state.trips=(await byProfile("trips",state.profile.id)).sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""));
@@ -144,8 +181,13 @@ async function initMap(){
   state.activeBaseLayer=state.baseLayers.osm;
   state.activeBaseLayer.addTo(state.map);
 
-  state.cluster=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true});
+  state.cluster=(typeof L.markerClusterGroup==="function")
+    ? L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true})
+    : L.layerGroup();
   state.cluster.addTo(state.map);
+  if(typeof L.markerClusterGroup!=="function"){
+    console.warn("Leaflet.markercluster unavailable; using normal layer group.");
+  }
   state.tripLayer=L.layerGroup().addTo(state.map);
   L.control.zoom({position:"topright"}).addTo(state.map);
 
@@ -182,7 +224,25 @@ async function buildOfflineLayer(file,name="offline.pmtiles"){
 async function restoreOfflineMap(){
   if(!state.profile)return;
   try{
-    const saved=await get("offlineMaps",`${state.profile.id}:offline`);
+    let saved=await get("cache",`${state.profile.id}:offline-map`);
+
+    // One-time compatibility with the old v0.9.1/v0.9.4 v2 store.
+    if(!saved){
+      const legacy=await get("offlineMaps",`${state.profile.id}:offline`);
+      if(legacy?.blob){
+        saved={
+          id:`${state.profile.id}:offline-map`,
+          profileId:state.profile.id,
+          kind:"offline-map",
+          name:legacy.name,
+          size:legacy.size,
+          blob:legacy.blob,
+          savedAt:legacy.savedAt||new Date().toISOString()
+        };
+        await put("cache",saved);
+      }
+    }
+
     if(!saved?.blob)return;
     await buildOfflineLayer(saved.blob,saved.name||"offline.pmtiles");
   }catch(e){
@@ -204,9 +264,10 @@ async function importOfflinePmtiles(e){
   setStatus(`正在檢查離線地圖：${file.name}…`);
   try{
     await buildOfflineLayer(file,file.name);
-    await put("offlineMaps",{
-      id:`${state.profile.id}:offline`,
+    await put("cache",{
+      id:`${state.profile.id}:offline-map`,
       profileId:state.profile.id,
+      kind:"offline-map",
       name:file.name,
       size:file.size,
       blob:file,
@@ -234,6 +295,8 @@ async function removeOfflineMap(){
   if(state.offlineLayer && state.map.hasLayer(state.offlineLayer)){
     state.map.removeLayer(state.offlineLayer);
   }
+  await del("cache",`${state.profile.id}:offline-map`);
+  // Remove old v2 location if it exists; get/del safely no-op when absent.
   await del("offlineMaps",`${state.profile.id}:offline`);
   state.offlineLayer=null;
   state.offlineArchive=null;
@@ -561,19 +624,21 @@ function renderTrips(){
       </article>`).join("")
     : `<div class="empty">先從「探索」頁把想去的點加入行程。</div>`;
 
-  state.tripLayer.clearLayers();
-  if(pts.length>1){
-    L.polyline(pts.map(p=>[Number(p.lat),Number(p.lon)]),{weight:3}).addTo(state.tripLayer);
+  if(state.tripLayer && window.L){
+    state.tripLayer.clearLayers();
+    if(pts.length>1){
+      L.polyline(pts.map(p=>[Number(p.lat),Number(p.lon)]),{weight:3}).addTo(state.tripLayer);
+    }
+    pts.forEach((p,i)=>{
+      L.marker([Number(p.lat),Number(p.lon)])
+        .bindPopup(`${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}`)
+        .addTo(state.tripLayer);
+    });
   }
-  pts.forEach((p,i)=>{
-    L.marker([Number(p.lat),Number(p.lon)])
-      .bindPopup(`${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}`)
-      .addTo(state.tripLayer);
-  });
 
   $$("[data-tfocus]").forEach(b=>b.onclick=()=>{
     const p=pts[+b.dataset.tfocus];
-    state.map.setView([p.lat,p.lon],16);
+    if(state.map)state.map.setView([p.lat,p.lon],16);
   });
 
   $$("[data-tremove]").forEach(b=>b.onclick=async()=>{

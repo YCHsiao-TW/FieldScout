@@ -1,12 +1,16 @@
-# FieldScout v0.9.4 — Route Planner
+# FieldScout v0.9.5 — Entry Recovery
 
 **🚀 Open the App: <https://ychsiao-tw.github.io/FieldScout/>**
 
-## v0.9.4 route planner
+## v0.9.5 entry recovery
+
+This release removes the forced IndexedDB v1 → v2 upgrade from the critical entry path, stores offline PMTiles in the existing cache store, closes DB connections after transactions, reports blocked databases, falls back when MarkerCluster is unavailable, and uses network-first versioned JavaScript modules to avoid stale service-worker code.
+
+## v0.9.5 route planner
 
 The Trips screen is now route-first. Add A, B, C target sites from Explore and FieldScout renders the ordered route and generates a Google Maps multi-stop navigation link. Larger trips are split into practical route segments. Each site still has one-stop navigation, and Up/Down controls change the route order.
 
-## v0.9.4 hotfix
+## v0.9.5 hotfix
 
 All Add-to-Trip entry points now share a defensive trip workflow. If no trip exists, FieldScout automatically creates today's trip. Legacy trip data are normalized, coordinates are coerced to numbers, duplicates are reported, and errors are surfaced in the status bar.
 
@@ -16,7 +20,7 @@ It still runs as a **pure GitHub Pages app without a Firebase backend**.
 
 ## Occurrence sources
 
-v0.9.4 searches:
+v0.9.5 searches:
 
 - TBIA
 - **Taiwan Biodiversity Network (TBN) Open API v2.6**

@@ -1,12 +1,26 @@
-# FieldScout v0.9.4 — Route Planner
+# FieldScout v0.9.5 — Entry Recovery
 
 **🚀 直接開啟 App：<https://ychsiao-tw.github.io/FieldScout/>**
 
-## v0.9.4 行程介面
+## v0.9.5 進入修復
+
+修正 iPhone Safari / PWA 可能卡在 Local Profile 畫面的問題：
+
+- 不再強迫 IndexedDB 從 v1 升到 v2 才能進入 App
+- 離線 PMTiles 改存既有 `cache` store
+- 舊 v2 `offlineMaps` 可自動相容遷移
+- IndexedDB connection 使用後主動關閉
+- database blocked 時會顯示明確錯誤
+- Leaflet.markercluster 載入失敗時退回普通 marker layer
+- 地圖初始化失敗不再阻止 Local Profile 開啟
+- JS modules 加版本 query 避免舊 Service Worker module cache
+- Service Worker 對程式碼採 network-first
+
+## v0.9.5 行程介面
 
 行程頁改成以「本次採集路線」為核心。從探索頁加入 A、B、C 等採集目標後，FieldScout 會依加入／排列順序顯示 A → B → C，並自動產生 Google Maps 多點導航連結。點位過多時自動分段；每個點也保留單點導航。行程點可用「上移／下移」調整導航順序。
 
-## v0.9.4 修正
+## v0.9.5 修正
 
 修正所有「加入行程」入口：若尚未建立行程會自動建立今日行程；舊版行程資料會自動正規化；無效經緯度與重複點位會顯示明確提示。清單、marker popup、候選探點、全部加入與自訂點共用同一套安全流程。
 
@@ -14,7 +28,7 @@ FieldScout 是一套以手機為優先、Local-first 的臺灣生物多樣性野
 
 目前仍維持 **GitHub Pages / 無 Firebase backend**。
 
-## v0.9.4 新增資料來源
+## v0.9.5 新增資料來源
 
 Occurrence 搜尋現在整合：
 
@@ -128,7 +142,7 @@ FieldScout 靜態版目前每次 taxon search 讀取 TBN 前 1000 筆；如果 T
 
 ## 其他功能
 
-v0.9.4 仍包含：
+v0.9.5 仍包含：
 
 - Local email profile
 - IndexedDB
