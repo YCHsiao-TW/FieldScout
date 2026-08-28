@@ -289,3 +289,389 @@ label input,label select,label textarea{margin-top:4px}
 .map-filter-active{
   font-weight:700;
 }
+
+/* =========================================================
+   v0.11.0 Field UI
+   ========================================================= */
+:root{
+  --surface:#ffffff;
+  --surface-2:#f8fafc;
+  --surface-3:#eef2f7;
+  --selected:#e8eef7;
+  --selected-border:#334155;
+}
+.tabs{
+  grid-template-columns:repeat(4,1fr)!important;
+}
+.tab{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  min-height:48px;
+}
+.tab-icon{
+  font-size:15px;
+  line-height:1;
+}
+.status{
+  position:relative;
+  border:0;
+  border-left:3px solid #64748b;
+  border-radius:9px;
+  background:#f1f5f9;
+  padding:7px 9px;
+}
+.search-row{
+  background:rgba(245,246,248,.96);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  padding:4px 0 8px;
+  z-index:450;
+}
+#tab-explore>.search-row{
+  position:sticky;
+  top:-10px;
+}
+.control-block{
+  background:var(--surface);
+  box-shadow:0 1px 0 rgba(15,23,42,.02);
+}
+.explore-month-section{
+  box-shadow:0 5px 18px rgba(15,23,42,.055);
+}
+.section-head{
+  align-items:center;
+}
+.section-head h2{
+  letter-spacing:-.01em;
+}
+.selection-hint{
+  font-size:10px;
+  color:var(--muted);
+  margin-top:3px;
+}
+.card{
+  transition:border-color .14s ease, box-shadow .14s ease, background .14s ease, transform .14s ease;
+}
+.card:hover{
+  border-color:#bdc6d2;
+}
+.card.highlight,
+.card.selected{
+  outline:none!important;
+  border-color:var(--selected-border)!important;
+  background:var(--selected)!important;
+  box-shadow:0 0 0 2px rgba(51,65,85,.12),0 8px 22px rgba(15,23,42,.08);
+}
+.card.selected::before{
+  content:"已選取";
+  display:inline-flex;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.04em;
+  border-radius:999px;
+  padding:2px 6px;
+  margin-bottom:6px;
+  color:#fff;
+  background:#334155;
+}
+.occ-marker-wrap.selected-occ-marker .occ-marker-dot{
+  transform:scale(1.45);
+  box-shadow:0 0 0 5px rgba(15,23,42,.18);
+}
+.trip-marker.selected{
+  transform:scale(1.14);
+  box-shadow:0 0 0 5px rgba(15,23,42,.20),0 3px 10px rgba(0,0,0,.3);
+}
+.route-command-card{
+  background:linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:12px;
+  margin:10px 0;
+  box-shadow:0 6px 20px rgba(15,23,42,.055);
+}
+.route-command-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+.route-command-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+}
+.route-command-grid button{
+  min-height:42px;
+}
+.danger-soft{
+  color:var(--danger);
+  background:#fff7f7;
+  border-color:#e8caca;
+}
+.route-planner-card{
+  border-radius:18px;
+  box-shadow:0 5px 18px rgba(15,23,42,.055);
+}
+.candidate-featured-list{
+  gap:10px;
+}
+.candidate-featured-list .card{
+  border-left:4px solid #334155;
+}
+#otherCandidatesBlock{
+  background:#f8fafc;
+}
+.occ-card-layout{
+  align-items:start;
+}
+.actions button,.actions .nav-link{
+  min-height:35px;
+}
+#tripPointList .card{
+  border-left:4px solid #cbd5e1;
+}
+#tripPointList .card.selected{
+  border-left-color:#334155;
+}
+.trip-record-count{
+  vertical-align:middle;
+}
+
+/* Mobile app shell: map + content + bottom nav */
+@media(max-width:760px){
+  #app{
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{order:1}
+  .workspace{
+    order:2;
+    grid-template-rows:46% 54%;
+  }
+  .tabs{
+    order:3;
+    border-top:1px solid var(--line);
+    border-bottom:0;
+    padding-bottom:max(2px,env(safe-area-inset-bottom));
+    box-shadow:0 -5px 18px rgba(15,23,42,.07);
+    z-index:900;
+  }
+  .tab{
+    padding:7px 3px 5px;
+    font-size:11px;
+  }
+  .tab.active{
+    border-bottom:0;
+    color:#111827;
+    background:#f8fafc;
+  }
+  .content-pane{
+    padding-bottom:18px;
+  }
+  .topbar h1{font-size:17px}
+  .profile-button{max-width:120px}
+  .route-command-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(min-width:761px){
+  .workspace{
+    grid-template-rows:52% 48%;
+  }
+  .tab{
+    flex-direction:row;
+    gap:5px;
+  }
+}
+
+/* =========================================================
+   v0.12.0 Field Mode
+   ========================================================= */
+.field-mode{
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  pointer-events:none;
+}
+body.field-mode-active .topbar,
+body.field-mode-active .tabs,
+body.field-mode-active .content-pane{
+  visibility:hidden;
+  pointer-events:none;
+}
+body.field-mode-active .workspace{
+  position:fixed;
+  inset:0;
+  display:block;
+  z-index:1000;
+}
+body.field-mode-active #mapWrap{
+  position:absolute;
+  inset:0;
+  border:0;
+}
+body.field-mode-active #map{
+  height:100%;
+}
+body.field-mode-active .map-tools{
+  top:max(12px,env(safe-area-inset-top));
+}
+body.field-mode-active .map-fab{
+  bottom:310px;
+}
+.field-mode-sheet{
+  pointer-events:auto;
+  position:absolute;
+  left:0;right:0;bottom:0;
+  max-height:min(58vh,520px);
+  overflow-y:auto;
+  background:rgba(255,255,255,.97);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-radius:24px 24px 0 0;
+  box-shadow:0 -12px 38px rgba(15,23,42,.18);
+  padding:14px 14px max(14px,env(safe-area-inset-bottom));
+}
+.field-mode-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.field-mode-head strong{
+  font-size:16px;
+}
+.field-mode-progress{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  gap:10px;
+  margin:11px 0;
+  font-size:11px;
+  font-weight:800;
+}
+.field-mode-progress-track{
+  height:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e5e7eb;
+}
+.field-mode-progress-bar{
+  width:0%;
+  height:100%;
+  background:#334155;
+  border-radius:999px;
+  transition:width .2s ease;
+}
+.field-target-card{
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:12px;
+  background:#f8fafc;
+}
+.field-target-top{
+  display:grid;
+  grid-template-columns:44px 1fr auto;
+  gap:10px;
+  align-items:center;
+}
+.field-target-letter{
+  width:44px;height:44px;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:#111827;
+  color:#fff;
+  font-size:18px;
+  font-weight:900;
+}
+.field-target-name{
+  font-size:17px;
+  font-weight:850;
+  line-height:1.2;
+}
+.field-status-pill{
+  display:inline-flex;
+  margin-top:5px;
+  border-radius:999px;
+  padding:3px 7px;
+  background:#e5e7eb;
+  font-size:10px;
+  font-weight:800;
+}
+.field-distance{
+  font-size:16px;
+  font-weight:850;
+  text-align:right;
+}
+.field-record-count{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:750;
+  color:#475569;
+}
+.field-mode-primary-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:10px 0;
+}
+.field-action-nav{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  border-radius:12px;
+  background:#111827;
+  color:#fff;
+  padding:11px 8px;
+  font-size:13px;
+  font-weight:800;
+}
+.field-mode-primary-actions button{
+  min-height:43px;
+}
+.field-mode-status-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  margin:8px 0;
+}
+.field-mode-status-actions button{
+  min-height:41px;
+}
+.field-mode-status-actions button.active{
+  background:#334155;
+  color:#fff;
+  border-color:#334155;
+}
+.field-mode-nav{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:7px;
+  margin-top:8px;
+}
+.field-mode-nav button{
+  min-height:39px;
+}
+.field-next-hint{
+  margin-top:8px;
+  font-size:10px;
+  color:var(--muted);
+  text-align:center;
+}
+.field-mode-empty{
+  padding:18px;
+  text-align:center;
+  color:var(--muted);
+}
+@media(max-height:700px){
+  .field-mode-sheet{
+    max-height:64vh;
+  }
+  body.field-mode-active .map-fab{
+    bottom:330px;
+  }
+}

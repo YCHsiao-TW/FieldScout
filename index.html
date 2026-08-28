@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.10.0</title>
+  <title>FieldScout v0.12.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.10.0 Field Workflow</span></h1>
+        <h1>FieldScout <span class="version">v0.12.0 Field Mode</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -44,10 +44,10 @@
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="explore">探索</button>
-      <button class="tab" data-tab="trips">行程</button>
-      <button class="tab" data-tab="records">採集</button>
-      <button class="tab" data-tab="settings">設定</button>
+      <button class="tab active" data-tab="explore"><span class="tab-icon">⌖</span><span>探索</span></button>
+      <button class="tab" data-tab="trips"><span class="tab-icon">↗</span><span>行程</span></button>
+      <button class="tab" data-tab="records"><span class="tab-icon">＋</span><span>採集</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-icon">⚙</span><span>設定</span></button>
     </nav>
 
     <div id="workspace" class="workspace">
@@ -166,7 +166,11 @@
           </details>
 
           <div class="section-head">
-            <div><h2>原始物種紀錄</h2><p id="resultMeta">尚未搜尋</p></div>
+            <div>
+              <h2>原始物種紀錄</h2>
+              <p id="resultMeta">尚未搜尋</p>
+              <div class="selection-hint">選取後會保持高亮，直到選擇另一個點</div>
+            </div>
             <div class="button-row compact">
               <button id="addAllBtn">全部加入行程</button>
               <button id="searchCsvBtn">CSV</button>
@@ -183,7 +187,10 @@
               <h2>本次採集行程</h2>
               <p>從探索頁加入點位後，這裡會自動產生 Google Maps 路線</p>
             </div>
-            <button id="newTripBtn">新增行程</button>
+            <div class="button-row compact">
+              <button id="fieldModeBtn" class="primary">進入野外模式</button>
+              <button id="newTripBtn">新增行程</button>
+            </div>
           </div>
 
           <div class="trip-toolbar">
@@ -192,11 +199,19 @@
             </label>
           </div>
 
-          <div class="route-sort-toolbar">
-            <span class="meta">路線排序</span>
-            <button id="routeOptimizeBtn" type="button" class="primary">最佳化順序</button>
-            <button id="routeNorthSouthBtn" type="button">北 → 南</button>
-            <button id="routeDistanceBtn" type="button">離我近 → 遠</button>
+          <div class="route-command-card">
+            <div class="route-command-head">
+              <div>
+                <strong>路線控制台</strong>
+                <div class="meta">重新排序只會改變採集目標順序，不會刪除紀錄。</div>
+              </div>
+            </div>
+            <div class="route-command-grid">
+              <button id="routeOptimizeBtn" type="button" class="primary">最佳化順序</button>
+              <button id="routeNorthSouthBtn" type="button">北 → 南</button>
+              <button id="routeDistanceBtn" type="button">離我近 → 遠</button>
+              <button id="clearTripPointsBtn" type="button" class="danger-soft">全部移除</button>
+            </div>
           </div>
           <div id="routePlannerCard" class="route-planner-card">
             <div class="route-empty">加入採集目標後，這裡會生成導航路線。</div>
@@ -230,6 +245,7 @@
 
           <div class="section-head">
             <div><h2>採集目標</h2><p id="tripMeta"></p></div>
+            <div id="tripSelectionHint" class="selection-hint">點「地圖」或 marker 可持續選取</div>
           </div>
           <div id="tripPointList" class="cards"></div>
 
@@ -364,6 +380,59 @@
     </div>
   </main>
 
+
+  <section id="fieldMode" class="field-mode hidden" aria-live="polite">
+    <div class="field-mode-sheet">
+      <div class="field-mode-head">
+        <div>
+          <div class="eyebrow">FIELD MODE</div>
+          <strong id="fieldModeTripName">Field Trip</strong>
+        </div>
+        <button id="fieldModeExitBtn" type="button">退出</button>
+      </div>
+
+      <div class="field-mode-progress">
+        <div id="fieldModeProgressText">0 / 0</div>
+        <div class="field-mode-progress-track">
+          <div id="fieldModeProgressBar" class="field-mode-progress-bar"></div>
+        </div>
+      </div>
+
+      <div class="field-target-card">
+        <div class="field-target-top">
+          <div id="fieldModeLetter" class="field-target-letter">A</div>
+          <div class="field-target-title">
+            <div id="fieldModeName" class="field-target-name">尚無採集點</div>
+            <div id="fieldModeStatus" class="field-status-pill">unvisited</div>
+          </div>
+          <div id="fieldModeDistance" class="field-distance">—</div>
+        </div>
+        <div id="fieldModeMeta" class="meta"></div>
+        <div id="fieldModeRecordCount" class="field-record-count">0 筆採集紀錄</div>
+      </div>
+
+      <div class="field-mode-primary-actions">
+        <a id="fieldModeNavigateBtn" class="field-action-nav" target="_blank" rel="noopener">Google Maps 導航</a>
+        <button id="fieldModeQuickRecordBtn" type="button" class="primary">＋ 快速採集紀錄</button>
+      </div>
+
+      <div class="field-mode-status-actions">
+        <button id="fieldModeArrivedBtn" type="button">◎ 已到達</button>
+        <button id="fieldModeSurveyedBtn" type="button">✓ 完成調查</button>
+        <button id="fieldModeInaccessibleBtn" type="button">× 無法到達</button>
+        <button id="fieldModeRevisitBtn" type="button">↻ 再訪</button>
+      </div>
+
+      <div class="field-mode-nav">
+        <button id="fieldModePrevBtn" type="button">← 上一點</button>
+        <button id="fieldModeLocateBtn" type="button">◎ 更新 GPS</button>
+        <button id="fieldModeNextBtn" type="button">下一點 →</button>
+      </div>
+
+      <div id="fieldModeNextHint" class="field-next-hint"></div>
+    </div>
+  </section>
+
   <div id="modal" class="modal hidden">
     <div class="modal-card">
       <button id="modalClose" class="modal-close">×</button>
@@ -374,6 +443,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
-  <script type="module" src="./app.js?v=0.10.0"></script>
+  <script type="module" src="./app.js?v=0.12.0"></script>
 </body>
 </html>
