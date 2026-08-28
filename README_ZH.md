@@ -1,4 +1,4 @@
-# FieldScout v0.16.0
+# FieldScout v0.17.0
 
 **生物多樣性野外探點、行程規劃、導航與採集紀錄 PWA**
 
@@ -12,10 +12,67 @@ https://github.com/YCHsiao-TW/FieldScout
 
 ---
 
+# v0.17.0 雙語介面
+
+FieldScout 現在由同一套 App 原生支援：
+
+- **繁體中文**
+- **English**
+
+「使用國家」與「介面語言」完全分離，例如可以：
+
+- 日本 workspace + 繁體中文 UI
+- 臺灣 workspace + English UI
+- 澳洲 workspace + English UI
+
+登入頁可以選擇語言；進入 App 後也能在：
+
+**設定 → 語言與介面**
+
+立即切換，不需要重新開啟 workspace。
+
+語言設定保存在：
+
+`settings.uiLanguage`
+
+並會隨 Backup JSON 保存。
+
+介面切換涵蓋：
+
+- 底部導覽
+- Explore / Trips / Field / Records / Settings
+- 篩選、排序、月份圖
+- Candidate ranking 與推薦原因
+- Trip Manager
+- 訪查狀態
+- 自訂採集點編輯器
+- GPS / route / backup 常見訊息
+- QC 顯示文字
+
+原始 biological data 不會被翻譯：
+
+- scientific names
+- occurrence locality
+- dataset names
+- specimen IDs
+- user notes
+
+iNaturalist autocomplete 會依 UI language 使用：
+
+- `zh-TW`
+- `en`
+
+資料庫中的 machine-readable 狀態仍維持固定值，例如：
+
+`planned / active / completed / unvisited / arrived / surveyed / inaccessible / revisit`
+
+因此改 UI 語言不會改變資料本身或破壞匯出格式。
+
+
 ## 目錄
 
 1. [FieldScout 是什麼](#1-fieldscout-是什麼)
-2. [v0.16.0 的核心功能](#2-v0160-的核心功能)
+2. [v0.17.0 的核心功能](#2-v0160-的核心功能)
 3. [快速開始](#3-快速開始)
 4. [國家 Workspace](#4-國家-workspace)
 5. [資料來源與地圖](#5-資料來源與地圖)
@@ -59,7 +116,7 @@ FieldScout 是一套以手機操作為優先的 **local-first 生物多樣性野
 
 ---
 
-# 2. v0.16.0 的核心功能
+# 2. v0.17.0 的核心功能
 
 ## 2.1 全球／國家模式
 
@@ -1038,11 +1095,11 @@ README：
 
 部署後可以用：
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0160`
+`https://ychsiao-tw.github.io/FieldScout/?v=0170`
 
 確認載入新版。
 
-網址的 `?v=0160` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
+網址的 `?v=0170` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
 
 ## 15.5 不要隨便清 Safari 網站資料
 

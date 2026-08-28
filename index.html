@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.16.0</title>
+  <title>FieldScout v0.17.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -22,6 +22,12 @@
       <p>選擇使用國家並輸入電子郵件，開啟這個裝置上的 FieldScout 工作空間。</p>
       <label>使用國家
         <select id="profileCountry"></select>
+      </label>
+      <label>介面語言
+        <select id="profileLanguage" data-i18n-ignore>
+          <option value="zh-Hant">繁體中文</option>
+          <option value="en">English</option>
+        </select>
       </label>
       <label>電子郵件
         <input id="profileEmail" type="email" autocomplete="email" placeholder="you@example.com">
@@ -39,7 +45,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">GLOBAL BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.16.0 Global</span></h1>
+        <h1>FieldScout <span class="version">v0.17.0 i18n</span></h1>
       </div>
       <div class="top-actions">
         <span id="countryBadge" class="badge">TW</span>
@@ -258,9 +264,9 @@
             <div class="two-col">
               <label>狀態
                 <select id="tripStatus">
-                  <option value="planned">Planned</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
+                  <option value="planned">規劃中</option>
+                  <option value="active">進行中</option>
+                  <option value="completed">已完成</option>
                 </select>
               </label>
               <label>備註<input id="tripNotes" placeholder="行程備註"></label>
@@ -403,14 +409,14 @@
             <div class="two-col">
               <label>微棲地
                 <select id="microhabitat">
-                  <option>地表／落葉層</option><option>草叢</option><option>石下</option><option>樹幹</option>
-                  <option>溪流邊</option><option>水域</option><option>建物</option><option>其他</option>
+                  <option value="地表／落葉層">地表／落葉層</option><option value="草叢">草叢</option><option value="石下">石下</option><option value="樹幹">樹幹</option>
+                  <option value="溪流邊">溪流邊</option><option value="水域">水域</option><option value="建物">建物</option><option value="其他">其他</option>
                 </select>
               </label>
               <label>方法
                 <select id="method">
-                  <option>手採</option><option>sweeping</option><option>beating</option><option>pitfall</option>
-                  <option>目視觀察</option><option>相機</option><option>其他</option>
+                  <option value="手採">手採</option><option value="sweeping">sweeping</option><option value="beating">beating</option><option value="pitfall">pitfall</option>
+                  <option value="目視觀察">目視觀察</option><option value="相機">相機</option><option value="其他">其他</option>
                 </select>
               </label>
             </div>
@@ -454,6 +460,17 @@
             <div id="profileSummary" class="meta"></div>
           </div>
 
+          <h3>語言與介面</h3>
+          <div class="two-col language-settings-row">
+            <label>介面語言
+              <select id="uiLanguageSelect" data-i18n-ignore>
+                <option value="zh-Hant">繁體中文</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <div class="meta language-help">切換後立即套用，並保存在目前 workspace。</div>
+          </div>
+
           <h3>標本號自動編號</h3>
           <div class="two-col">
             <label>Prefix<input id="specimenPrefix" placeholder="ABARA"></label>
@@ -487,6 +504,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script type="module" src="./app.js?v=0.16.0"></script>
+  <script type="module" src="./app.js?v=0.17.0"></script>
 </body>
 </html>

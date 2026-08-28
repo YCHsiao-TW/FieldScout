@@ -1235,3 +1235,36 @@ button.primary{
     align-items:flex-start;
   }
 }
+
+/* =========================================================
+   v0.17.0 bilingual i18n
+   ========================================================= */
+.language-settings-row{
+  align-items:end;
+  margin-bottom:10px;
+}
+.language-help{
+  padding-bottom:10px;
+}
+#profileLanguage,
+#uiLanguageSelect{
+  font-weight:650;
+}
+html[lang="en"] .tabs .tab span:last-child{
+  letter-spacing:-.01em;
+}
+html[lang="en"] .route-command-grid button,
+html[lang="en"] .field-mode-status-actions button{
+  font-size:10.5px;
+}
+html[lang="en"] .custom-point-fab{
+  min-width:108px;
+}
+@media(max-width:760px){
+  html[lang="en"] .tabs .tab span:last-child{
+    font-size:9px;
+  }
+  html[lang="en"] .field-mode-status-actions{
+    grid-template-columns:1fr 1fr;
+  }
+}

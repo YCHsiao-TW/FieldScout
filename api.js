@@ -201,7 +201,7 @@ export async function taxonomy(q,context={}){
     },
     {
       name:"iNaturalist taxonomy",
-      promise:fetchJson(`https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(q)}&locale=zh-TW&per_page=10`)
+      promise:fetchJson(`https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(q)}&locale=${context.language==="en"?"en":"zh-TW"}&per_page=10`)
     }
   );
 

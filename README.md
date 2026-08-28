@@ -1,4 +1,4 @@
-# FieldScout v0.16.0
+# FieldScout v0.17.0
 
 > **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**  
 > **以手機為優先的生物多樣性探點、行程規劃、野外導航與採集紀錄工具**
@@ -13,6 +13,19 @@ https://github.com/YCHsiao-TW/FieldScout
 
 ---
 
+## v0.17.0 — Bilingual UI
+
+FieldScout now supports **Traditional Chinese / English** in the same application.
+
+- language is independent from the selected country
+- choose the UI language on the startup screen
+- switch language again from Settings
+- language is stored in the local workspace
+- main navigation, controls, statuses, QC labels, Trip/Field workflows, Custom Point tools, and common runtime messages are translated
+- iNaturalist autocomplete uses `zh-TW` or `en` according to the UI language
+- stored machine values such as `planned`, `surveyed`, and Trip IDs remain language-independent
+
+
 ## What FieldScout does / FieldScout 做什麼
 
 FieldScout connects the whole fieldwork workflow in one local-first web app:
@@ -25,7 +38,7 @@ The current release runs as a static PWA on **GitHub Pages**. No Firebase, serve
 
 ---
 
-## v0.16.0 at a glance
+## v0.17.0 at a glance
 
 - **Country-scoped workspaces** — choose Taiwan, another country, or Global at startup.
 - **GBIF + iNaturalist occurrence search** scoped to the selected country.
@@ -65,7 +78,7 @@ When replacing files on GitHub Pages, upload the current release files to the re
 
 After deployment, use a cache-busting URL to confirm the new version:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0160`
+`https://ychsiao-tw.github.io/FieldScout/?v=0170`
 
 Do **not** clear Safari site data just to refresh the UI unless you have exported a backup first, because IndexedDB data may be removed.
 

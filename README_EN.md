@@ -1,4 +1,4 @@
-# FieldScout v0.16.0
+# FieldScout v0.17.0
 
 **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**
 
@@ -12,10 +12,34 @@ https://github.com/YCHsiao-TW/FieldScout
 
 ---
 
+# v0.17.0 Bilingual UI
+
+The same FieldScout application now supports:
+
+- **Traditional Chinese**
+- **English**
+
+Country and interface language are independent. For example, a Japan workspace can use Traditional Chinese, while a Taiwan workspace can use English.
+
+Language can be selected on the startup screen and changed later under:
+
+**Settings → Language & interface**
+
+The choice is stored as `settings.uiLanguage` and is included in backups.
+
+Translation covers the main navigation, filters, Trips, Field workflow, record controls, visit statuses, candidate explanations, Custom Point tools, QC labels, and common runtime messages.
+
+Biological/source data such as scientific names, localities, dataset names, specimen IDs, and user notes are not intentionally translated.
+
+iNaturalist autocomplete follows the UI language (`zh-TW` or `en`).
+
+Stored machine values remain language-independent.
+
+
 ## Contents
 
 1. [What is FieldScout?](#1-what-is-fieldscout)
-2. [Core features in v0.16.0](#2-core-features-in-v0160)
+2. [Core features in v0.17.0](#2-core-features-in-v0160)
 3. [Quick start](#3-quick-start)
 4. [Country-scoped workspaces](#4-country-scoped-workspaces)
 5. [Data sources and basemaps](#5-data-sources-and-basemaps)
@@ -56,7 +80,7 @@ The main pages are:
 
 ---
 
-# 2. Core features in v0.16.0
+# 2. Core features in v0.17.0
 
 ## Country-scoped workspaces
 
@@ -730,7 +754,7 @@ https://ychsiao-tw.github.io/FieldScout/
 
 After deploying v0.16.0:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0160`
+`https://ychsiao-tw.github.io/FieldScout/?v=0170`
 
 The query string is only for cache busting. It does not create a separate data workspace.
 
