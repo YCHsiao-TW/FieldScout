@@ -1,500 +1,782 @@
 # FieldScout v0.16.0
 
-**臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**
+**生物多樣性野外探點、行程規劃、導航與採集紀錄 PWA**
 
-**🚀 直接開啟 App：**  
+線上版：  
 https://ychsiao-tw.github.io/FieldScout/
 
-## v0.9.8 緊急修復
-
-修正 v0.9.7 `renderTaxon()` 中殘留的錯誤 JavaScript 片段。該錯誤會使 `app.js` 在 module parse 階段直接失敗，造成 FieldScout 無法啟動。本版同時更新 Service Worker 與 module cache version。
+GitHub Repository：  
+https://github.com/YCHsiao-TW/FieldScout
 
 [English README](README_EN.md)
 
 ---
 
-## v0.16.0 Global
+## 目錄
 
-本版把「探點 → 行程 → 採集」進一步串成完整工作流程。
-
-### 新功能
-
-- **路線最佳化**：使用最近鄰 heuristic，由目前 GPS（若可取得）開始重新排列採集點，降低直線回頭路；Google Maps 最後仍依道路導航。
-- **Trip Point ↔ Field Record**：採集紀錄可以綁定目前行程的 A / B / C 採集點；綁定後可直接使用該點 GPS，儲存紀錄時該點會自動標記為 `surveyed`。
-- **採集成果回連**：行程點會顯示已綁定的採集紀錄數。
-- **訪查狀態地圖化**：行程 marker 直接以 `unvisited / arrived / surveyed / inaccessible / revisit` 不同符號顯示。
-- **地名篩選**：可用 locality 文字搜尋，例如「南投」、「花蓮」。
-- **目前地圖範圍篩選**：勾選後只保留目前 map viewport 內的 occurrence；移動地圖會重新套用篩選。
-- **候選樣點推薦解釋**：每個 candidate 可查看 density、recency、month support、distance、coordinate quality、multi-source support 的分數拆解。
-- **路線距離摘要**：行程框顯示 FieldScout 計算的直線路徑估計，與 Google Maps 實際道路距離分開表示。
-
-候選樣點與路線最佳化皆屬 fieldwork heuristic，不是 SDM，也不是道路 routing engine。
-
-
-## v0.16.0 探索頁調整
-
-- 移除「摘要」分頁
-- 頂部分頁改為：探索 / 行程 / 採集 / 設定
-- 月份 occurrence 長條圖移到「探索」頁
-- 每月直接顯示紀錄筆數
-- 點月份可直接套用該月份篩選
-- 再點同月份可取消
-- 新增「全部月份」按鈕
-- 月份圖位於候選樣點 Top 5 前，方便在規劃採集點時直接參考季節性
-
-
-## 1. FieldScout 是什麼？
-
-FieldScout 是一套以手機為優先、Local-first 的生物多樣性野外工具，主要目標是把「找資料 → 選採集點 → 規劃行程 → 導航 → 野外紀錄 → 匯出資料」整合在同一個介面。
-
-目前版本完全可以部署在 **GitHub Pages**，不需要 Firebase、伺服器或登入系統。
-
-核心流程：
-
-**搜尋物種 → 查看 occurrence → 候選樣點排名 → 加入採集目標 → 規劃路線 → Google Maps 導航 → 野外採集／觀察紀錄 → 匯出**
+1. [FieldScout 是什麼](#1-fieldscout-是什麼)
+2. [v0.16.0 的核心功能](#2-v0160-的核心功能)
+3. [快速開始](#3-快速開始)
+4. [國家 Workspace](#4-國家-workspace)
+5. [資料來源與地圖](#5-資料來源與地圖)
+6. [探索 Explore](#6-探索-explore)
+7. [候選樣點排名](#7-候選樣點排名)
+8. [行程 Trips](#8-行程-trips)
+9. [野外 Field](#9-野外-field)
+10. [自訂採集點](#10-自訂採集點)
+11. [採集／觀察紀錄 Records](#11-採集觀察紀錄-records)
+12. [匯出、備份與資料安全](#12-匯出備份與資料安全)
+13. [Local-first 架構](#13-local-first-架構)
+14. [已知限制](#14-已知限制)
+15. [GitHub Pages 部署與更新](#15-github-pages-部署與更新)
+16. [目前專案檔案](#16-目前專案檔案)
 
 ---
 
-## 2. 線上 App
+# 1. FieldScout 是什麼？
 
-FieldScout：
+FieldScout 是一套以手機操作為優先的 **local-first 生物多樣性野外工作工具**。
 
-https://ychsiao-tw.github.io/FieldScout/
+它不是單純的 occurrence viewer，也不是 Species Distribution Model。FieldScout 的目標是把真正會在採集前、採集中與採集後使用的工作流程串在一起：
 
-Repository：
+> **搜尋物種 → 查看 occurrence → 判斷候選探點 → 建立行程 → 排序路線 → 野外導航 → 記錄採集／觀察結果 → 匯出與備份**
 
-https://github.com/YCHsiao-TW/FieldScout
+目前版本完全可以部署在 **GitHub Pages**，不需要 Firebase、後端伺服器或登入系統。
+
+底部主要頁面為：
+
+**探索 ｜ 行程 ｜ 野外 ｜ 採集 ｜ 設定**
+
+各頁角色刻意分開：
+
+| 頁面 | 主要用途 |
+|---|---|
+| 探索 | 搜尋物種、查看 occurrence、篩選、月份圖、候選探點 |
+| 行程 | 建立／管理 Trip、加入採集目標、排序、匯入匯出 |
+| 野外 | 實際跑行程：導航、訪查狀態、GPS Track、快速採集 |
+| 採集 | 建立與管理 specimen / observation records |
+| 設定 | Local workspace、標本號設定、Backup / Restore |
 
 ---
 
-## 3. 目前資料來源
+# 2. v0.16.0 的核心功能
 
-### TaiCOL
+## 2.1 全球／國家模式
 
-用途：
+啟動 FieldScout 時可以選擇：
 
-- 名稱解析
-- 協助確認學名
-- taxonomy resolution
+- 臺灣
+- 日本
+- 韓國
+- 澳洲
+- 美國
+- 其他 ISO 國家
+- **Global：不限制國家**
 
-TaiCOL 目前不作為主要 occurrence 點位來源。
+搜尋 occurrence 時會依目前 workspace 國家調整資料查詢。
+
+## 2.2 自訂採集點資料庫
+
+原本地圖上的簡單「＋」已升級為完整的 **自訂採集點** 功能。
+
+自訂點可以永久保存，之後重複加入不同 Trip。
+
+## 2.3 Trip Manager
+
+行程與野外頁都可以開啟 **編輯行程**：
+
+- 改名
+- 設為目前行程
+- 查看目標數／紀錄數
+- 刪除
+- 新增行程
+
+## 2.4 獨立「野外」頁
+
+野外工作不再使用 overlay，而是正式獨立頁面。
+
+它專注處理：
+
+- 目前 A / B / C 採集點
+- GPS 距離
+- Google Maps 導航
+- 訪查狀態
+- GPS Track
+- 快速建立採集紀錄
+
+## 2.5 衛星圖
+
+地圖提供：
+
+- OpenStreetMap
+- OpenTopoMap
+- Esri World Imagery
+
+舊版 Offline PMTiles 已移除。
+
+---
+
+# 3. 快速開始
+
+## 3.1 開啟 Workspace
+
+進入網站後：
+
+1. 選擇 **使用國家**
+2. 輸入 email
+3. 按 **開啟 FieldScout**
+
+這不是雲端帳號登入。
+
+Email 與國家只用於識別目前瀏覽器的本機 IndexedDB workspace。
+
+## 3.2 搜尋物種
+
+到 **探索**：
+
+1. 輸入學名或名稱
+2. 選 autocomplete 建議
+3. 按搜尋
+4. 等待 GBIF / iNaturalist occurrence 載入
+
+## 3.3 建立行程
+
+在 occurrence 或 candidate card 上按：
+
+**加入行程**
+
+若目前沒有 Trip，FieldScout 可以建立一個新的行程。
+
+## 3.4 出發
+
+到 **野外**：
+
+1. 選目前行程
+2. 選 A / B / C 目標
+3. 更新 GPS
+4. 開 Google Maps 導航
+5. 標記已到達／完成／無法到達／再訪
+6. 按 **＋ 採集紀錄**
+
+---
+
+# 4. 國家 Workspace
+
+v0.16.0 開始，FieldScout 不再只限於臺灣。
+
+## 4.1 Workspace 如何區分？
+
+### 臺灣
+
+為了保留舊版資料，相同 email 的臺灣 workspace 繼續使用舊的 email-only profile ID。
+
+因此升級 v0.16.0 後，原本臺灣的：
+
+- Trips
+- records
+- photos
+- settings
+- specimen counter
+- occurrence cache
+
+仍會被讀到。
+
+### 其他國家
+
+其他國家以：
+
+`email + country`
+
+建立獨立 Local Workspace。
+
+所以同一個 email 可以分別有：
+
+- Taiwan workspace
+- Japan workspace
+- Australia workspace
+
+互不混用。
+
+### Global
+
+Global 不加國家 occurrence 限制，適合跨國分布或大尺度探索。
+
+## 4.2 國家如何影響搜尋？
 
 ### GBIF
 
-用途：
-
-- 臺灣 occurrence records
-- 座標
-- 日期
-- basis of record
-- coordinate uncertainty
-- dataset metadata
-- source media（若來源提供）
+使用 ISO 3166-1 alpha-2 country code 限制 occurrence。
 
 ### iNaturalist
 
-用途：
+FieldScout 先解析所選國家的 iNaturalist Place，再以 `place_id` 限制 observations。
 
-- 臺灣 occurrence records
-- taxon autocomplete
-- 近期觀察紀錄
-- 原始照片
-- 觀察頁連結
+如果 iNaturalist 的國家解析暫時失敗，GBIF 仍可獨立使用。
 
-### 地圖
+### TaiCOL
 
-目前提供：
+TaiCOL 僅在 **臺灣 workspace** 參與名稱解析。
 
-- OpenStreetMap Standard
-- OpenTopoMap
-- CyclOSM
-- Optional Offline PMTiles
+其他國家主要使用：
 
-### TBIA / TBN
+- GBIF taxonomy
+- iNaturalist taxonomy
 
-TBIA 與 TBN occurrence 在目前純 GitHub Pages 版本中已暫時移除。
+## 4.3 QC
 
-原因不是資料本身不重要，而是直接從瀏覽器呼叫 API 時，實際使用過程中出現不穩定／CORS 等問題。
+舊版的：
 
-目前策略：
+> 座標可能不在臺灣
 
-> **先保留穩定的 GBIF + iNaturalist occurrence。**
+只會在 Taiwan workspace 套用。
 
-未來如果加入 Firebase Functions 或其他 API proxy，可再把 TBIA / TBN 加回來。
+其他國家不會被臺灣經緯度範圍誤判。
 
 ---
 
-## 4. 探索與搜尋
+# 5. 資料來源與地圖
 
-FieldScout 不限制生物類群，可以搜尋：
+## 5.1 GBIF
 
-- 蜘蛛
-- 昆蟲
-- 兩棲類
-- 爬蟲類
-- 魚類
-- 植物
-- 其他生物
+主要用途：
 
-搜尋後會整合 GBIF 與 iNaturalist 的公開 occurrence 紀錄，並進行基本去重。
-
-搜尋結果可顯示：
-
-- 學名
-- 中文名
-- 日期
+- occurrence coordinates
+- event date
 - locality
-- 座標
+- basis of record
+- coordinate uncertainty
+- dataset metadata
+- source media（若有）
+
+## 5.2 iNaturalist
+
+主要用途：
+
+- occurrence / observations
+- taxon autocomplete
+- recent observations
+- source photos
+- observation links
+- country Place filtering
+
+## 5.3 TaiCOL
+
+目前用途：
+
+- 臺灣名稱解析
+- 學名協助
+- taxonomy matching
+
+TaiCOL 不是目前的 occurrence 來源。
+
+## 5.4 TBIA / TBN
+
+目前 static GitHub Pages 版本沒有使用 TBIA / TBN occurrence。
+
+原因是先前實測 browser-direct API 穩定性與 CORS 不理想。
+
+若未來加入 backend / API proxy，可以再評估恢復。
+
+## 5.5 地圖底圖
+
+目前有三種：
+
+### 一般地圖
+
+OpenStreetMap。
+
+適合：
+
+- 道路
+- 地名
+- 一般導航判讀
+
+### 地形
+
+OpenTopoMap。
+
+適合：
+
+- 山區
+- 等高與地勢
+- 野外路線判讀
+
+### 衛星影像
+
+Esri World Imagery。
+
+適合：
+
+- 林緣
+- 農地
+- 溪谷
+- 道路切線
+- 棲地破碎程度
+- 建物與開發區
+
+FieldScout 不使用未公開的 Google satellite tile URL。
+
+---
+
+# 6. 探索 Explore
+
+探索頁負責「找資料與選點」。
+
+## 6.1 occurrence 清單
+
+搜尋後整合 GBIF 與 iNaturalist 公開資料。
+
+卡片可顯示：
+
+- scientific name
+- common name
+- date
+- locality
+- latitude / longitude
 - coordinate uncertainty
 - source
-- dataset
 - basis of record
-- 原始資料連結
-- 原始圖片（若有）
+- dataset
+- source image
+- source link
 
----
+## 6.2 去重
 
-## 5. 地圖介面
+FieldScout 會以：
 
-FieldScout 採用手機優先的 split-screen 設計：
+- scientific name
+- date
+- 約 4 位小數座標
 
-- 上半部：地圖
-- 下半部：清單與操作
+進行基本 occurrence merge。
 
-地圖保持固定，下方清單可獨立捲動。
+這是工作流程上的去重，不代表不同平台的紀錄在生物學上一定是同一筆。
 
-### Marker clustering
+## 6.3 Marker ↔ 清單
 
-大量 occurrence 會自動 clustering，避免地圖被大量 marker 塞滿。
+點地圖 marker：
 
-### Marker ↔ 清單連動
+- 對應清單卡片會被選取
+- 選取狀態會持續存在
+- 不會再像舊版數秒後自動消失
 
-點地圖上的 marker：
+點卡片「地圖」：
 
-1. 自動找到對應 occurrence
-2. 下方清單捲到該紀錄
-3. 卡片高亮
-4. popup 顯示基本資訊
+- 地圖移到該點
+- 對應 marker / card 保持 selected
 
-點清單的「地圖」：
+## 6.4 篩選
 
-1. 地圖移動至該點
-2. 打開 marker popup
-3. 高亮對應清單卡片
-
-### Popup
-
-marker popup 可直接：
-
-- Google Maps 導航
-- 加入行程
-- 查看縮圖（若有）
-
----
-
-## 6. 候選樣點排名
-
-FieldScout 的候選樣點不是 Species Distribution Model，而是 **heuristic ranking**。
-
-目前排名考慮：
-
-- occurrence 密度
-- 紀錄近期性
-- 指定月份是否有紀錄
-- 與目前位置距離
-- coordinate uncertainty
-- 多來源支持
-
-結果會先顯示：
-
-## 推薦候選樣點 Top 5
-
-前五名固定放在原始 occurrence 前面。
-
-其餘候選點收在：
-
-**其他候選樣點**
-
-可展開查看。
-
-這個排名主要是幫助野外探點，不應被解讀為正式棲地適合度或 SDM 預測。
-
----
-
-## 7. 篩選與排序
-
-Occurrence 可依下列條件篩選：
+目前支援：
 
 - 起始日期
 - 結束日期
 - 月份
-- 與目前位置距離
-- 資料來源
+- 距離
+- source
 - basis of record
 - 最大 coordinate uncertainty
 - 是否有照片
+- 行政區／地名文字
+- **目前地圖範圍**
 
-排序方式：
+「目前地圖範圍」啟用後，移動或縮放地圖會重新套用 occurrence 篩選。
 
-- 距離最近
-- 最新紀錄
-- 最舊紀錄
-- 座標精度最好
-- 多來源支持優先
+## 6.5 月份紀錄圖
 
----
+探索頁有 12 個月份的 occurrence record count。
 
-## 8. 月份紀錄圖
+可以：
 
-Dashboard 會根據目前搜尋物種的 occurrence 建立 12 個月份的紀錄圖。
+- 點月份 → 套用該月份篩選
+- 再點同月份 → 取消
+- 按「全部月份」 → reset
 
-每個月份直接顯示：
-
-- 月份
-- occurrence 筆數
-- 相對柱高
-
-月份圖可互動：
-
-- 點某月 → 自動回探索頁並套用該月篩選
-- 再點同一月份 → 取消月份篩選
-
-這裡表示的是 **occurrence record count**，不是生物個體 abundance。
+這裡表示的是 **occurrence record count**，不是 biological abundance。
 
 ---
 
-## 9. 原始資料圖片
+# 7. 候選樣點排名
 
-如果 GBIF 或 iNaturalist 提供原始媒體 URL，FieldScout 會顯示縮圖。
+FieldScout 會把 occurrence 依附近座標聚合成 candidate sites。
 
-目前設計：
+候選排名是 **fieldwork heuristic**，不是 Species Distribution Model。
 
-- 清單：56 × 56 px 小縮圖
-- marker popup：小型預覽圖
-- occurrence 詳情：最多 4 張縮圖
-- 點縮圖：開啟來源原圖
+目前 score 由下列項目組成：
 
-圖片仍屬原始提供者。
+| 指標 | 最大分數 |
+|---|---:|
+| occurrence density | 25 |
+| recency | 20 |
+| target-month support | 20 |
+| distance / accessibility proxy | 15 |
+| coordinate quality | 10 |
+| multi-source support | 10 |
 
-FieldScout 會盡可能保留：
+總分上限 100。
 
-- media license
-- source URL
-- dataset metadata
+每個 candidate 可以按：
 
-使用圖片時仍應遵守來源授權。
+**為什麼推薦？**
+
+查看分數拆解。
+
+## 注意
+
+Distance 只是目前位置到 candidate 的直線距離 proxy。
+
+它不是：
+
+- 道路距離
+- 步行距離
+- 真實 access cost
+- habitat suitability
+
+因此 candidate score 應用於 **探點決策支援**，不能當正式 SDM 結果。
 
 ---
 
-## 10. Field Trips
+# 8. 行程 Trips
 
-從探索頁看到想去的點後，可以按：
+## 8.1 Trip 可以放什麼？
 
-**加入行程**
-
-如果目前沒有行程，FieldScout 會自動建立一個今日 Field Trip。
-
-行程可以包含：
+Trip Point 可來自：
 
 - occurrence
 - candidate site
-- 自訂點
+- 自訂採集點
 - GPX waypoint
 
----
+## 8.2 Trip Manager
 
-## 11. 路線規劃
+按 **編輯行程** 可以：
 
-行程頁會把加入的採集目標顯示成：
+- 改行程名稱
+- 設為目前行程
+- 查看日期
+- 查看採集目標數
+- 查看已綁定 field record 數
+- 新增 Trip
+- 刪除 Trip
 
-A → B → C → D
+刪除 Trip 時：
 
-並自動建立 Google Maps 多點導航。
+- Trip 會刪除
+- Trip Points 會刪除
+- Field records **不會刪除**
+- record 的 `tripId / tripPointId` 會解除
 
-### 路線排序
+避免留下 dangling references。
 
-可以快速重新排列：
+## 8.3 採集目標狀態
 
-**北 → 南**
+Trip Point 支援：
 
-依緯度由高到低排列。
+- `unvisited`
+- `arrived`
+- `surveyed`
+- `inaccessible`
+- `revisit`
 
-**離我近 → 遠**
+狀態會直接反映在 Trip map marker。
 
-讀取目前 GPS，依目前位置與各點位的直線距離排序。
+## 8.4 路線排序
 
-也可使用：
+目前提供：
+
+### 最佳化順序
+
+nearest-neighbor heuristic。
+
+若可取得目前 GPS，會從使用者目前位置開始排列採集目標，以減少直線回頭路。
+
+這不是 road-routing optimization。
+
+### 北 → 南
+
+依 latitude 由北到南排序。
+
+適合某些線性地理採集策略。
+
+### 手動排序
+
+每個點仍可：
 
 - 上移
 - 下移
 
-手動調整採集順序。
+## 8.5 全部移除
 
-Google Maps 會使用 FieldScout 排好的順序作為 waypoints。
+可以一次清空目前 Trip 的全部採集目標。
 
-如果點位很多，FieldScout 會自動把導航拆成多段。
+若 field records 已綁定這些點：
 
----
+- records 保留
+- Trip Point linkage 解除
 
-## 12. Google Maps 導航
+## 8.6 Google Maps
 
-每個點位都有：
+FieldScout Trip 本身 **沒有 10 點上限**。
 
-**導航此點**
+多點 Google Maps URL 會依：
 
-整個行程則可以：
+- 安全點數
+- URL length
 
-**開始多點導航**
+自動分段。
 
-Google Maps 會以目前位置作為起點。
+下一段會承接上一段的最後一點。
 
-最後一個 FieldScout 點位作為 destination，其餘點依 A → B → C 順序作為 waypoints。
+野外頁則採 **單點導航**，因此不受 multi-waypoint 限制。
 
----
+## 8.7 GPX
 
-## 13. GPX
+支援：
 
-FieldScout 支援：
+- GPX waypoint import
+- Trip GPX export
+- GPS Track GPX export
 
-### GPX Import
-
-可以把既有 waypoint 加入目前行程。
-
-### GPX Export
-
-可以匯出：
-
-- Field Trip waypoints
-- GPS track
-
-適合後續使用：
+可接：
 
 - QGIS
 - Garmin
-- GPX viewer
 - GIS workflow
+- GPX viewer
 
 ---
 
-## 14. GPS Track
+# 9. 野外 Field
 
-行程中可以開始 GPS track recording。
+「野外」是一個獨立頁面，角色是 **執行行程**。
 
-FieldScout 會記錄：
+## 9.1 目前採集目標
+
+顯示：
+
+- A / B / C...
+- 點位名稱
+- visit status
+- latitude / longitude
+- source
+- 已綁定採集紀錄數
+- 目前位置直線距離
+- GPS accuracy
+
+## 9.2 快速操作
+
+可以：
+
+- Google Maps 導航
+- 已到達
+- 完成調查
+- 無法到達
+- 再訪
+- 上一點
+- 下一點
+- 更新 GPS
+
+## 9.3 行程進度
+
+`surveyed` 與 `inaccessible` 會計入已處理進度。
+
+FieldScout 顯示：
+
+- completed / total
+- progress bar
+- 下一個未完成目標
+
+## 9.4 快速採集紀錄
+
+按：
+
+**＋ 採集紀錄**
+
+FieldScout 會：
+
+1. 切到採集頁
+2. 自動綁定目前 Trip Point
+3. 帶入行程目標物種（若有）
+4. 使用目前 Trip Point 座標
+5. specimen ID 為空時使用下一號
+6. 儲存後回到 **野外** 頁
+
+## 9.5 GPS Track
+
+GPS Track 已從「行程」移到「野外」。
+
+可：
+
+- 開始
+- 停止
+- 匯出 GPX
+
+Track point 記錄：
 
 - latitude
 - longitude
 - timestamp
 - accuracy
 
-結束後可以匯出 GPX track。
-
 ---
 
-## 15. Local Profile
+# 10. 自訂採集點
 
-啟動 FieldScout 時會要求輸入 email。
+自訂點不是只存在單一 Trip，而是目前 workspace 的 **永久點位庫**。
 
-這個 email 的用途是建立 **Local Profile**。
+## 10.1 可保存欄位
 
-例如：
-
-`abc@example.com`
-
-在同一支手機、同一個瀏覽器中，再輸入相同 email，就會讀取同一份：
-
-- Trips
-- 採集紀錄
-- 本機照片
-- 設定
-- specimen counter
-- occurrence cache
-
-不同 email 會建立不同本機資料空間。
-
-### 重要限制
-
-這不是帳號登入。
-
-FieldScout 不會驗證 email，也不會把 email 傳送到自己的 server。
-
-因此：
-
-- 換手機不會自動同步
-- 換瀏覽器不會同步
-- 清除 Safari 網站資料可能遺失資料
-
-真正的登入與跨裝置同步要等未來 backend。
-
----
-
-## 16. IndexedDB
-
-FieldScout 的主要本機資料使用 IndexedDB，而不是把所有內容都塞進 localStorage。
-
-IndexedDB 用於：
-
-- profiles
-- settings
-- trips
-- field records
-- photos
-- occurrence cache
-- offline map data
-
-優點：
-
-- 容量較大
-- 適合結構化資料
-- 可保存 Blob / 圖片
-- 更適合 PWA
-
----
-
-## 17. 採集／觀察紀錄
-
-FieldScout 可建立本機 field records。
-
-欄位包含：
-
-- specimen / record ID
-- taxon
-- count
-- microhabitat
-- collection / observation method
+- 名稱
+- latitude
+- longitude
+- 類型
+- priority
+- target taxon
 - notes
-- GPS
-- GPS accuracy
-- photo
-- timestamp
+- country workspace
+
+點位類型：
+
+- 自訂探點
+- 採集點
+- 停車點
+- 步道入口
+- 道路／入口
+- 其他
+
+Priority：
+
+- 高
+- 中
+- 低
+
+## 10.2 座標來源
+
+### 目前 GPS
+
+直接讀裝置定位。
+
+### 地圖中心
+
+使用目前 map center。
+
+### 點地圖指定
+
+進入 map-pick mode 後：
+
+1. 點地圖
+2. marker 出現
+3. marker 可拖曳
+4. 按完成
+5. 回編輯器
+
+### 手動輸入
+
+直接輸入：
+
+- Latitude
+- Longitude
+
+### 貼上座標
 
 支援：
 
-- 新增
+`24.21783, 120.97621`
+
+FieldScout 會解析為：
+
+- latitude = 24.21783
+- longitude = 120.97621
+
+## 10.3 點位庫
+
+行程頁可開啟：
+
+**自訂採集點 → 點位庫**
+
+可：
+
+- 地圖定位
 - 編輯
+- 加入目前 Trip
 - 刪除
 
+## 10.4 與 Trip 同步
+
+若自訂點已加入 Trip：
+
+- 修改名稱 → linked Trip Point 同步
+- 修改座標 → linked Trip Point 同步
+- 修改類型／priority／notes → 同步
+
+若從點位庫刪除：
+
+- library point 刪除
+- 已存在的 Trip Point **保留**
+- Trip Point 變成獨立 snapshot
+
+避免過去規劃好的行程被破壞。
+
 ---
 
-## 18. 批次採集點
+# 11. 採集／觀察紀錄 Records
 
-野外在同一個 locality 採很多標本時，可以使用：
+## 11.1 欄位
 
-**開始採集點**
+目前 field record 可保存：
 
-FieldScout 會先取得一次 GPS。
+- specimen / record ID
+- count
+- taxon
+- microhabitat
+- method
+- notes
+- latitude
+- longitude
+- GPS accuracy
+- photos
+- Trip
+- Trip Point
+- country code
+- created / updated timestamp
 
-之後新增多筆紀錄時，可以直接：
+## 11.2 GPS
 
-**使用採集點 GPS**
+可以使用：
 
-不用每隻標本重新定位。
+### 取得現場 GPS
 
----
+重新讀取裝置 GPS。
 
-## 19. 自動 specimen ID
+### 使用行程點 GPS
 
-可在設定中指定：
+直接使用目前選擇的 Trip Point 座標。
+
+這兩者角色不同：
+
+- Trip Point GPS = 規劃點座標
+- 現場 GPS = 實際觀察／採集位置
+
+## 11.3 Trip Point ↔ Record
+
+Record 可以綁定某個 A / B / C Trip Point。
+
+行程頁會顯示：
+
+> X 筆採集紀錄
+
+儲存 linked record 時，若該點原本是：
+
+- `unvisited`
+- `arrived`
+
+FieldScout 會更新為：
+
+`surveyed`
+
+## 11.4 Specimen ID
+
+設定頁可以指定：
 
 - Prefix
 - 下一號
@@ -509,67 +791,47 @@ Counter：
 
 `5001`
 
-下一筆會自動生成：
+自動產生：
 
 `ABARA05001`
 
-接著：
+下一筆：
 
 `ABARA05002`
 
-`ABARA05003`
+## 11.5 Photos
 
----
+照片會在瀏覽器端：
 
-## 20. 本機照片
-
-Field record 可以加入照片。
-
-照片會：
-
-1. 在瀏覽器端重新編碼成 JPEG
-2. 縮小尺寸
+1. resize
+2. JPEG re-encode
 3. 存進 IndexedDB
 
-不會自動上傳雲端。
+不會自動上傳。
 
----
+## 11.6 QC
 
-## 21. Data Quality / QC
+目前基本 QC 包含：
 
-採集紀錄會進行基本 QC。
-
-目前包含：
-
-- 缺 specimen ID
+- 缺 specimen / record ID
 - 缺 GPS
-- GPS accuracy 過差
-- 座標可能不在臺灣
+- GPS accuracy > 1000 m
 - specimen ID 重複
-- count 異常
-
-Dashboard 會顯示 QC 摘要。
+- count < 1
+- Taiwan workspace 額外檢查座標是否可能落在臺灣範圍外
 
 ---
 
-## 22. 匯出
+# 12. 匯出、備份與資料安全
 
-### Occurrence
-
-可匯出：
-
-- CSV
-- GeoJSON
-
-### Field records
+## 12.1 Occurrence
 
 可匯出：
 
 - CSV
 - GeoJSON
-- obscured-coordinate CSV
 
-### Trips
+## 12.2 Trip
 
 可匯出：
 
@@ -577,234 +839,272 @@ Dashboard 會顯示 QC 摘要。
 - GeoJSON
 - GPX
 
----
+Trip CSV / GeoJSON 會保留自訂點 metadata，例如：
 
-## 23. Sensitive coordinates
+- `customPointId`
+- `customType`
+- `priority`
 
-Field records 可以產生模糊座標版本。
+## 12.3 Field Records
 
-例如設定：
+可匯出：
 
-`1000 m`
+- CSV
+- GeoJSON
+- sensitive / obscured-coordinate CSV
 
-FieldScout 會產生 deterministic obscured coordinates。
+## 12.4 Sensitive coordinates
 
-用途：
+FieldScout 可以產生 deterministic obscured coordinates。
 
-- 分享資料
-- 公開資料
-- 敏感物種初步保護
+原始座標不會被覆蓋。
 
-原始 GPS 不會因此被覆蓋。
+適合：
 
----
+- 初步分享
+- 敏感物種
+- 公開版本資料
 
-## 24. Backup / Restore
+## 12.5 Backup JSON
 
-可以匯出：
-
-**FieldScout Backup JSON**
-
-內容包含：
+Backup 可包含：
 
 - Local Profile
 - settings
-- trips
-- records
-- local photos
-- occurrence cache
-
-之後可再匯入恢復。
-
-在尚未有 Firebase cloud sync 前，建議定期做 backup。
-
----
-
-## 25. Offline
-
-FieldScout 是 PWA。
-
-目前離線支援：
-
-- app shell
-- 已保存 Trips
+- custom point library
+- Trips
 - field records
 - local photos
 - occurrence cache
-- optional raster PMTiles
 
-### Offline PMTiles
+Backup 可能包含：
 
-使用者可以在：
+- email
+- 精確座標
+- specimen ID
+- notes
+- photos
+- 未公開採集點
 
-**設定 → 離線地圖**
+因此請把 Backup JSON 視為 **敏感研究資料**。
 
-匯入自己的：
-
-`.pmtiles`
-
-目前設計以 raster PMTiles 為主。
-
-PMTiles 不會隨 repository 一起附送，原因包括：
-
-- 地圖授權
-- GitHub repository 大小
-- 不同使用者需要的 zoom level 不同
+不要直接公開放在 GitHub repository。
 
 ---
 
-## 26. GitHub Pages 部署
+# 13. Local-first 架構
 
-Repository：
+目前 FieldScout：
+
+- static frontend
+- GitHub Pages
+- Leaflet
+- IndexedDB
+- Service Worker
+- public APIs
+- no backend
+- no authentication
+- no cloud database
+- no automatic cross-device sync
+
+## IndexedDB 主要資料
+
+- `profiles`
+- `settings`
+- `trips`
+- `records`
+- `photos`
+- `cache`
+
+Custom Point Library 目前保存於：
+
+`settings.customPoints`
+
+## Email 不是登入
+
+Email 只用來產生 Local Workspace ID。
+
+FieldScout 不驗證 email，也沒有自己的登入 server。
+
+因此：
+
+- 換手機不會同步
+- 換 Safari / Chrome 不會同步
+- 清除網站資料可能刪除 IndexedDB
+- Private Browsing 不適合作為主要工作環境
+
+---
+
+# 14. 已知限制
+
+## 14.1 Candidate ranking 不是 SDM
+
+不要將 score 解讀為：
+
+- habitat suitability
+- occurrence probability
+- abundance
+- occupancy
+
+## 14.2 Route optimization 不是道路最佳化
+
+nearest-neighbor 使用直線距離。
+
+Google Maps 才會依實際道路重新導航。
+
+## 14.3 API 依賴
+
+Static frontend 依賴：
+
+- GBIF API
+- iNaturalist API
+- TaiCOL API（Taiwan）
+- map tile providers
+
+第三方服務若：
+
+- downtime
+- rate limit
+- CORS 改變
+- API schema 改變
+
+可能造成部分功能暫時不可用。
+
+## 14.4 iNaturalist 國家解析
+
+非臺灣 workspace 需要先把國家名稱解析為 iNaturalist Place ID。
+
+若該步驟失敗：
+
+- iNaturalist occurrence 可能不可用
+- GBIF 仍可工作
+
+## 14.5 搜尋筆數
+
+目前單次搜尋偏向 field-scouting，而不是完整 database dump：
+
+- GBIF：最多約 300 筆
+- iNaturalist：最多約 200 筆
+
+因此結果適合探索與野外規劃，不應被解讀為該國家所有 occurrence 的完整下載。
+
+## 14.6 Photos 與瀏覽器空間
+
+大量照片會增加 IndexedDB 使用量。
+
+iOS Safari 的儲存空間仍可能受系統管理。
+
+建議定期：
+
+- export Backup
+- export field records
+- 清理不需要的大量照片
+
+---
+
+# 15. GitHub Pages 部署與更新
+
+## 15.1 Repository
 
 https://github.com/YCHsiao-TW/FieldScout
 
-GitHub：
-
-**Settings → Pages**
-
-設定：
-
-`Deploy from a branch`
-
-Branch：
-
-`main`
-
-Folder：
-
-`/(root)`
-
-部署後網址：
+## 15.2 Pages
 
 https://ychsiao-tw.github.io/FieldScout/
 
+## 15.3 更新方式
+
+把新版檔案上傳／覆蓋 repository root。
+
+主要程式檔：
+
+- `index.html`
+- `app.js`
+- `api.js`
+- `db.js`
+- `utils.js`
+- `ranking.js`
+- `styles.css`
+- `sw.js`
+- `manifest.webmanifest`
+
+README：
+
+- `README.md`
+- `README_ZH.md`
+- `README_EN.md`
+
+## 15.4 Cache busting
+
+部署後可以用：
+
+`https://ychsiao-tw.github.io/FieldScout/?v=0160`
+
+確認載入新版。
+
+網址的 `?v=0160` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
+
+## 15.5 不要隨便清 Safari 網站資料
+
+清除 Site Data 可能一起刪除：
+
+- IndexedDB
+- Trips
+- records
+- photos
+- settings
+- custom point library
+
+若真的要清除，建議先：
+
+**設定 → 匯出 Backup JSON**
+
 ---
 
-## 27. 目前架構
+# 16. 目前專案檔案
+
+典型 repository root：
 
 ```text
-FieldScout
-│
-├── GitHub Pages
-│
-├── HTML / CSS / JavaScript
-│
-├── Leaflet
-│   ├── OSM
-│   ├── OpenTopoMap
-│   ├── CyclOSM
-│   └── PMTiles
-│
-├── Taxonomy
-│   ├── TaiCOL
-│   ├── GBIF
-│   └── iNaturalist
-│
-├── Occurrence
-│   ├── GBIF
-│   └── iNaturalist
-│
-├── IndexedDB
-│   ├── Local Profiles
-│   ├── Trips
-│   ├── Records
-│   ├── Photos
-│   └── Cache
-│
-└── Google Maps navigation
+FieldScout/
+├── index.html
+├── app.js
+├── api.js
+├── db.js
+├── ranking.js
+├── utils.js
+├── styles.css
+├── sw.js
+├── manifest.webmanifest
+├── README.md
+├── README_ZH.md
+└── README_EN.md
 ```
 
----
+舊版的：
 
-## 28. 目前限制
+```text
+offline/
+```
 
-因為目前仍是純靜態 GitHub Pages：
-
-- 無真正帳號登入
-- 無跨裝置同步
-- 無多人協作
-- 無雲端照片
-- 無中央 community database
-- 無 server-side API proxy
-- 無 server-side coordinate privacy
-- 無 server-side cache
-- 某些第三方 API 仍可能受到 CORS 或服務狀態影響
+已移除，不再需要。
 
 ---
 
-## 29. 未來 Backend
+# FieldScout 的設計原則
 
-未來如果 FieldScout 進入正式多人使用階段，可以再加入 Firebase：
+FieldScout 目前刻意維持幾個原則：
 
-### Authentication
+1. **野外工作優先於功能堆疊**
+2. **Local-first，沒有網路時仍保留自己的 Trips 與 records**
+3. **原始資料來源要可追溯**
+4. **候選排名保持可解釋**
+5. **規劃點與真正 field record 分開保存**
+6. **敏感座標不因匯出模糊版本而覆蓋原始資料**
+7. **先保持 static GitHub Pages 架構簡單穩定，再考慮 backend / sync**
 
-- Google login
-- Gmail account
+FieldScout 目前定位為：
 
-### Firestore
+> **Biodiversity field scouting and field-recording decision-support tool**
 
-- cloud Trips
-- field records
-- settings
-- shared projects
-
-### Cloud Storage
-
-- field photos
-- specimen photos
-- habitat photos
-
-### Firebase Functions / API Proxy
-
-這會是重新加入 TBIA / TBN 最合理的位置。
-
-用途：
-
-- server-side API requests
-- cache
-- normalization
-- pagination
-- CORS handling
-- rate-limit control
-
-### Community
-
-未來可以增加：
-
-- public records
-- shared projects
-- contributor attribution
-- moderation
-- sensitive-coordinate rules
-
----
-
-## 30. FieldScout 的定位
-
-FieldScout 不是：
-
-- SDM
-- 自動物種鑑定系統
-- 官方資料庫
-- 導航服務本身
-
-FieldScout 是：
-
-> **把生物多樣性公開資料轉成可用於野外探點、採集規劃、導航與紀錄的工作介面。**
-
-候選樣點排名應視為野外決策輔助，而不是生態模型結果。
-
----
-
-## 31. Version
-
-Current version:
-
-**FieldScout v0.16.0**
-
-目前階段：
-
-**Static / GitHub Pages / Local-first**
-
-下一個 major architecture 預計才會導入 backend。
+而不是自動鑑定系統、SDM 平台或雲端標本資料庫。

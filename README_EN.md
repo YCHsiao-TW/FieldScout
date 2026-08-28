@@ -1,742 +1,790 @@
 # FieldScout v0.16.0
 
-**Mobile-first biodiversity field scouting, route planning, navigation, and field recording for Taiwan**
+**Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**
 
-**🚀 Open the App:**  
+Live App:  
 https://ychsiao-tw.github.io/FieldScout/
 
-## v0.9.8 runtime hotfix
-
-Fixes a malformed JavaScript fragment left in `renderTaxon()` in v0.9.7. The syntax error prevented the ES module from parsing and stopped FieldScout from booting. Service-worker and module cache versions are also bumped.
+GitHub Repository:  
+https://github.com/YCHsiao-TW/FieldScout
 
 [繁體中文 README](README_ZH.md)
 
 ---
 
-## v0.16.0 Global
+## Contents
 
-- removed the Dashboard tab
-- top navigation is now Explore / Trips / Records / Settings
-- moved the interactive monthly occurrence chart into Explore
-- visible record counts for every month
-- tapping a month applies/removes the month filter
-- added an All months reset button
-- the chart now appears before the Top 5 candidate sites for field-planning context
-
-
-## 1. What is FieldScout?
-
-FieldScout is a mobile-first, local-first Progressive Web App designed to support biodiversity fieldwork.
-
-Its primary workflow is:
-
-**search taxon → inspect occurrence records → rank candidate sites → add field targets → plan route → navigate → record observations/specimens → export data**
-
-The current release runs entirely on **GitHub Pages** and does not require Firebase or a backend.
+1. [What is FieldScout?](#1-what-is-fieldscout)
+2. [Core features in v0.16.0](#2-core-features-in-v0160)
+3. [Quick start](#3-quick-start)
+4. [Country-scoped workspaces](#4-country-scoped-workspaces)
+5. [Data sources and basemaps](#5-data-sources-and-basemaps)
+6. [Explore](#6-explore)
+7. [Candidate-site ranking](#7-candidate-site-ranking)
+8. [Trips](#8-trips)
+9. [Field](#9-field)
+10. [Custom Point Library](#10-custom-point-library)
+11. [Field records](#11-field-records)
+12. [Export, backup, and sensitive data](#12-export-backup-and-sensitive-data)
+13. [Local-first architecture](#13-local-first-architecture)
+14. [Known limitations](#14-known-limitations)
+15. [GitHub Pages deployment and updates](#15-github-pages-deployment-and-updates)
 
 ---
 
-## 2. Live App
+# 1. What is FieldScout?
 
-FieldScout:
+FieldScout is a **mobile-first, local-first biodiversity fieldwork tool**.
 
-https://ychsiao-tw.github.io/FieldScout/
+It is not merely an occurrence viewer and it is not a Species Distribution Model. Its goal is to connect the practical workflow used before, during, and after fieldwork:
 
-Repository:
+> **search a taxon → inspect occurrences → rank candidate sites → build a Trip → order the route → navigate in the field → record specimens / observations → export and back up the data**
 
-https://github.com/YCHsiao-TW/FieldScout
+The current release runs entirely as a static PWA on **GitHub Pages**. It does not require Firebase, a backend server, or authenticated user accounts.
+
+The main pages are:
+
+**Explore | Trips | Field | Records | Settings**
+
+| Page | Role |
+|---|---|
+| Explore | taxon search, occurrences, filters, monthly chart, candidate sites |
+| Trips | Trip management, targets, route ordering, GPX / CSV / GeoJSON |
+| Field | navigation, target status, GPS Track, quick field recording |
+| Records | specimen / observation records, GPS, photos, QC |
+| Settings | local workspace, specimen numbering, backup / restore |
 
 ---
 
-## 3. Current data sources
+# 2. Core features in v0.16.0
 
-### TaiCOL
+## Country-scoped workspaces
 
-Used for:
+Choose Taiwan, another ISO country, or Global when opening FieldScout.
 
-- taxonomic name resolution
-- scientific-name matching
-- taxonomy assistance
+Occurrence searches are scoped to that workspace.
 
-TaiCOL is not currently used as the main occurrence source.
+## Persistent Custom Point Library
+
+Reusable field sites can now be stored independently from Trips.
+
+## Trip Manager
+
+Rename, activate, inspect, create, and delete Trips from both Trips and Field.
+
+## Dedicated Field page
+
+Field execution is separated from planning.
+
+## Satellite imagery
+
+Available basemaps:
+
+- OpenStreetMap
+- OpenTopoMap
+- Esri World Imagery
+
+Legacy Offline PMTiles support has been removed.
+
+---
+
+# 3. Quick start
+
+## Open a workspace
+
+1. Select a country
+2. Enter an email
+3. Open FieldScout
+
+This is **not account authentication**. The values only identify a local IndexedDB workspace.
+
+## Search a taxon
+
+In **Explore**:
+
+1. enter a scientific or common name
+2. choose an autocomplete result
+3. run the search
+4. review GBIF and iNaturalist occurrence records
+
+## Build a Trip
+
+From an occurrence or candidate card, choose:
+
+**Add to Trip**
+
+## Run the Trip
+
+Open **Field**:
+
+1. select the Trip
+2. select the current A / B / C target
+3. refresh GPS
+4. open Google Maps navigation
+5. mark arrival / surveyed / inaccessible / revisit
+6. create a field record
+
+---
+
+# 4. Country-scoped workspaces
+
+## Taiwan backward compatibility
+
+Taiwan continues to use the legacy email-only workspace ID.
+
+This preserves existing Taiwan:
+
+- Trips
+- records
+- photos
+- settings
+- specimen counter
+- occurrence cache
+
+after upgrading to v0.16.0.
+
+## Other countries
+
+Other countries use:
+
+`email + country`
+
+to create separate local workspaces.
+
+One email can therefore have separate Taiwan, Japan, Australia, or other workspaces.
+
+## Global
+
+Global removes the country filter and is useful for broad geographic exploration.
+
+## Search behavior
 
 ### GBIF
 
-Used for public Taiwan occurrence records, including:
+Occurrence searches use an ISO 3166-1 alpha-2 country filter.
+
+### iNaturalist
+
+FieldScout resolves the selected country to an iNaturalist Place and then filters observations using `place_id`.
+
+If iNaturalist place resolution fails temporarily, GBIF can still work independently.
+
+### TaiCOL
+
+TaiCOL participates in taxonomy/name matching only for Taiwan workspaces.
+
+Other countries primarily use:
+
+- GBIF taxonomy
+- iNaturalist taxonomy
+
+## QC
+
+The Taiwan-specific geographic QC warning is only applied to Taiwan workspaces.
+
+---
+
+# 5. Data sources and basemaps
+
+## GBIF
+
+Used for:
 
 - coordinates
 - dates
+- locality
 - basis of record
 - coordinate uncertainty
 - dataset metadata
 - source media when available
 
-### iNaturalist
+## iNaturalist
 
 Used for:
 
-- Taiwan occurrence records
+- observations
 - taxon autocomplete
-- recent observations
-- original observation photos
-- source observation links
+- recent records
+- source photos
+- source links
+- country Place filtering
 
-### Maps
+## TaiCOL
 
-Available basemaps:
+Used for Taiwan name resolution and taxonomy assistance.
 
-- OpenStreetMap Standard
-- OpenTopoMap
-- CyclOSM
-- optional offline raster PMTiles
+It is not the main occurrence source.
 
-### TBIA / TBN
+## TBIA / TBN
 
-TBIA and TBN occurrence queries are currently disabled in the static GitHub Pages release.
+TBIA and TBN occurrence queries are not currently enabled in the static GitHub Pages release because browser-direct API access was not sufficiently reliable in earlier testing.
 
-The issue is not the value of those datasets. Direct browser access was not sufficiently reliable in real use, particularly because static frontends remain dependent on third-party CORS and API behavior.
+They can be reconsidered if FieldScout later gains a backend/API proxy.
 
-The current strategy is:
+## Basemaps
 
-> **keep the stable GBIF + iNaturalist occurrence workflow.**
+### OpenStreetMap
 
-TBIA and TBN can be reconsidered when a backend/API proxy is introduced.
+Best for roads and general map context.
+
+### OpenTopoMap
+
+Useful for terrain and mountainous fieldwork.
+
+### Esri World Imagery
+
+Useful for vegetation boundaries, roads, agriculture, streams, development, and landscape context.
+
+FieldScout does not rely on undocumented Google satellite tile URLs.
 
 ---
 
-## 4. Taxon search
+# 6. Explore
 
-FieldScout is not restricted to spiders.
+Explore is responsible for data discovery and site selection.
 
-It can be used for:
+## Occurrence cards
 
-- spiders
-- insects
-- amphibians
-- reptiles
-- fish
-- plants
-- other taxa
-
-Search results combine public occurrence records from GBIF and iNaturalist with basic deduplication.
-
-Occurrence cards may contain:
+Merged GBIF / iNaturalist records may show:
 
 - scientific name
 - common name
 - date
 - locality
 - coordinates
-- coordinate uncertainty
+- uncertainty
 - source
-- dataset
 - basis of record
-- original source link
-- source image when available
+- dataset
+- source image
+- source link
 
----
+## Basic deduplication
 
-## 5. Map interface
+Records are merged using a combination of:
 
-FieldScout uses a mobile-first split-screen layout:
+- scientific name
+- date
+- coordinates rounded to approximately four decimals
 
-- upper section: map
-- lower section: independently scrollable controls and lists
+This is a workflow-level merge, not a guarantee that records are biologically identical.
 
-### Marker clustering
+## Marker ↔ list synchronization
 
-Large occurrence sets are clustered automatically to reduce map clutter.
+Selected markers and cards remain highlighted until another record is selected or filtered out.
 
-### Marker ↔ list synchronization
+## Filters
 
-Tapping a map marker:
+Current filters include:
 
-1. finds the matching occurrence card
-2. scrolls it into view
-3. highlights the card
-4. opens the marker popup
-
-Tapping **Map** on a record card:
-
-1. centers the map
-2. opens the matching popup
-3. highlights the card
-
-### Marker popup actions
-
-Popups provide:
-
-- Google Maps navigation
-- Add to trip
-- compact source-image preview when available
-
----
-
-## 6. Candidate-site ranking
-
-Candidate sites are generated using a **heuristic ranking**, not a Species Distribution Model.
-
-The current ranking considers:
-
-- occurrence density
-- recency
-- target-month support
-- distance from the current location
-- coordinate uncertainty
-- multi-source support
-
-The interface prioritizes:
-
-## Top 5 recommended candidate sites
-
-The top five candidates are pinned above the raw occurrence list.
-
-Remaining candidates are available under an expandable:
-
-**Other candidate sites**
-
-The ranking is intended for field scouting and decision support. It should not be interpreted as a formal habitat-suitability model.
-
----
-
-## 7. Filters and sorting
-
-Occurrence records can be filtered by:
-
-- start date
-- end date
+- date range
 - month
-- distance radius
+- distance
 - source
 - basis of record
 - maximum coordinate uncertainty
 - photo availability
+- locality text
+- current map viewport
 
-Sorting options include:
+## Monthly occurrence chart
 
-- nearest first
-- newest first
-- oldest first
-- best coordinate precision
-- stronger multi-source support
+The 12-month chart displays occurrence record counts.
 
----
+It is interactive:
 
-## 8. Interactive monthly occurrence chart
+- tap a month to filter
+- tap it again to clear
+- use All Months to reset
 
-The Dashboard summarizes occurrence records by month.
-
-Each month displays:
-
-- month
-- record count
-- relative bar height
-
-The chart is interactive:
-
-- tap a month → return to Explore and apply that month filter
-- tap the selected month again → clear the filter
-
-This chart represents **occurrence record counts**, not biological abundance.
+These are **record counts, not abundance estimates**.
 
 ---
 
-## 9. Source images
+# 7. Candidate-site ranking
 
-When GBIF or iNaturalist exposes public source media, FieldScout shows compact previews.
+Candidate sites use an explainable **fieldwork heuristic**, not an SDM.
 
-Current image UI:
+Current score components:
 
-- occurrence card: 56 × 56 px thumbnail
-- marker popup: compact preview
-- occurrence details: up to four thumbnails
-- tap thumbnail: open the original source image
+| Component | Maximum |
+|---|---:|
+| occurrence density | 25 |
+| recency | 20 |
+| target-month support | 20 |
+| distance / accessibility proxy | 15 |
+| coordinate quality | 10 |
+| multi-source support | 10 |
 
-FieldScout preserves media-license metadata whenever possible.
+Total: 100.
 
-Images remain the property of their original providers and should be reused according to the source license.
+Each candidate can open **Why recommended?** to inspect the score breakdown.
+
+The distance component is straight-line distance from the current position. It is not road distance, walking time, or habitat suitability.
 
 ---
 
-## 10. Field Trips
+# 8. Trips
 
-Any occurrence or candidate site can be added to a Field Trip.
+Trip Points may originate from:
 
-If no trip exists, FieldScout automatically creates a trip for the current date.
-
-Trips can include:
-
-- occurrence records
+- occurrences
 - candidate sites
 - custom points
 - GPX waypoints
 
----
+## Trip Manager
 
-## 11. Route planning
+Edit Trips can:
 
-Trip targets are displayed as an ordered route:
+- rename a Trip
+- set it active
+- show date
+- show target count
+- show linked record count
+- create a Trip
+- delete a Trip
 
-A → B → C → D
+Deleting a Trip removes the Trip and its targets but **preserves field records**. Their `tripId` / `tripPointId` links are cleared.
 
-FieldScout generates a Google Maps multi-stop route from that order.
+## Visit status
 
-### Route sorting
+Trip Points support:
 
-Two quick sorting modes are available:
+- `unvisited`
+- `arrived`
+- `surveyed`
+- `inaccessible`
+- `revisit`
 
-**North → South**
+## Route ordering
 
-Sorts targets by latitude from north to south.
+### Optimize order
 
-**Nearest → Farthest**
+Uses a nearest-neighbor heuristic.
 
-Uses the current GPS position and sorts targets by straight-line distance.
+When current GPS is available, ordering begins from the user's position.
 
-Manual **Up / Down** controls remain available for fine adjustment.
+This is not road-routing optimization.
 
-Google Maps uses the resulting FieldScout order as its waypoint order.
+### North → South
 
-Large trips are automatically split into multiple route segments when necessary.
+Sorts by latitude.
 
----
+### Manual ordering
 
-## 12. Google Maps navigation
+Targets can still be moved up or down.
 
-Each target has a single-point navigation link.
+## Remove all
 
-The entire trip can also open as a multi-stop route.
+All targets can be cleared from the active Trip without deleting field records.
 
-Google Maps uses:
+## Google Maps routes
 
-- current location as origin
-- the final FieldScout point as destination
-- preceding FieldScout points as ordered waypoints
+FieldScout Trips themselves have **no 10-point limit**.
 
----
+Multi-stop Google Maps URLs are segmented conservatively according to stop count and URL length.
 
-## 13. GPX
+Field navigation uses one target at a time and is not affected by multi-waypoint limits.
 
-FieldScout supports:
+## GPX
 
-### GPX import
+Supports:
 
-Import existing waypoints into the current trip.
-
-### GPX export
-
-Export:
-
-- Field Trip waypoints
-- recorded GPS tracks
-
-These files can be used in:
-
-- QGIS
-- Garmin software
-- GPX viewers
-- GIS workflows
+- GPX waypoint import
+- Trip GPX export
+- GPS Track GPX export
 
 ---
 
-## 14. GPS track recording
+# 9. Field
 
-FieldScout can record a field GPS track.
+Field is the execution page for an active Trip.
 
-Track points include:
+It shows:
+
+- current A / B / C target
+- target name
+- status
+- coordinates
+- source
+- linked record count
+- straight-line distance
+- GPS accuracy
+- Trip progress
+- next unfinished target
+
+Actions include:
+
+- Google Maps navigation
+- arrived
+- surveyed
+- inaccessible
+- revisit
+- previous target
+- next target
+- refresh GPS
+
+## Quick field record
+
+Selecting **+ Record**:
+
+1. opens Records
+2. binds the current Trip Point
+3. prefills the Trip target taxon when available
+4. uses the Trip Point coordinate
+5. obtains the next specimen ID if the field is empty
+6. returns to Field after saving
+
+## GPS Track
+
+GPS Track lives in Field rather than Trips.
+
+Track points store:
 
 - latitude
 - longitude
 - timestamp
-- GPS accuracy
+- accuracy
 
-Tracks can be exported as GPX.
-
----
-
-## 15. Local Profiles
-
-FieldScout asks for an email address at startup.
-
-The email creates a **Local Profile**.
-
-Within the same browser/device, entering the same email reopens the same:
-
-- Trips
-- field records
-- local photos
-- settings
-- specimen counter
-- occurrence cache
-
-Different emails create independent local workspaces.
-
-### Important limitation
-
-This is not authentication.
-
-FieldScout does not verify the email address and does not send it to its own server.
-
-Therefore:
-
-- changing devices does not synchronize data
-- changing browsers does not synchronize data
-- clearing browser site data may remove local data
-
-Real authentication and cross-device synchronization require a future backend.
+and can be exported to GPX.
 
 ---
 
-## 16. IndexedDB
+# 10. Custom Point Library
 
-FieldScout stores its main local data in IndexedDB.
+Custom Points are persistent workspace-level locations rather than one-off Trip Points.
 
-IndexedDB is used for:
+## Stored fields
 
-- profiles
-- settings
-- trips
-- field records
-- photos
-- occurrence cache
-- offline map data
-
-This provides more capacity and better structured-data support than relying entirely on localStorage.
-
----
-
-## 17. Field records
-
-FieldScout can create local specimen or observation records.
-
-Fields include:
-
-- specimen / record ID
-- taxon
-- count
-- microhabitat
-- collection / observation method
+- name
+- latitude
+- longitude
+- type
+- priority
+- target taxon
 - notes
-- GPS
-- GPS accuracy
-- photo
-- timestamps
+- country workspace
 
-Records can be:
+Types include:
 
-- created
-- edited
-- deleted
+- scout site
+- sampling site
+- parking
+- trailhead
+- access / road entrance
+- other
 
----
+Priority:
 
-## 18. Batch collection-site mode
+- high
+- medium
+- low
 
-When collecting many specimens at one locality, FieldScout can start a shared collection site.
+## Coordinate input
 
-The app records GPS once.
+Coordinates can come from:
 
-Subsequent specimen records can reuse that location instead of acquiring GPS for every individual record.
-
----
-
-## 19. Automatic specimen IDs
-
-Users can configure:
-
-- prefix
-- next counter value
+- current GPS
+- current map center
+- map click
+- draggable marker refinement
+- manual latitude / longitude
+- pasted `lat, lon`
 
 Example:
 
-Prefix:
+`24.21783, 120.97621`
 
-`ABARA`
+## Reuse across Trips
 
-Next number:
+One Custom Point can be added to multiple Trips.
 
-`5001`
+Editing a linked library point updates its linked Trip Points.
 
-Generated IDs:
+Deleting the library point does **not** delete existing Trip Points. Those become independent snapshots.
+
+---
+
+# 11. Field records
+
+Records may store:
+
+- specimen / record ID
+- count
+- taxon
+- microhabitat
+- method
+- notes
+- latitude / longitude
+- GPS accuracy
+- photos
+- Trip
+- Trip Point
+- country code
+- timestamps
+
+## Coordinate source
+
+Records can use:
+
+- live field GPS
+- linked Trip Point coordinates
+
+These should be understood differently:
+
+- Trip Point = planned target
+- live GPS = actual observation / collection position
+
+## Trip Point ↔ Record
+
+A record can be linked to a specific A / B / C target.
+
+If an unvisited/arrived target receives a linked record, FieldScout marks it as surveyed.
+
+## Specimen numbering
+
+Settings can define:
+
+- Prefix
+- next counter
+
+For example:
+
+`ABARA` + `5001`
+
+produces:
 
 `ABARA05001`
 
-`ABARA05002`
+## Photos
 
-`ABARA05003`
+Photos are resized and re-encoded as JPEG in the browser before being stored in IndexedDB.
 
----
+They are not automatically uploaded.
 
-## 20. Local photos
-
-Field-record photos are processed in the browser.
-
-They are:
-
-1. re-encoded as JPEG
-2. resized
-3. saved into IndexedDB
-
-They are not uploaded automatically.
-
----
-
-## 21. Data-quality checks
-
-FieldScout performs basic QC on local field records.
+## QC
 
 Current checks include:
 
-- missing specimen ID
+- missing record ID
 - missing GPS
-- excessive GPS uncertainty
-- coordinates possibly outside Taiwan
-- duplicate specimen IDs
-- invalid counts
-
-The Dashboard summarizes detected issues.
+- GPS accuracy > 1000 m
+- duplicated specimen ID
+- count < 1
+- Taiwan-only geographic sanity check
 
 ---
 
-## 22. Export
+# 12. Export, backup, and sensitive data
 
-### Occurrence records
+## Occurrences
 
-- CSV
-- GeoJSON
-
-### Field records
+Export:
 
 - CSV
 - GeoJSON
-- obscured-coordinate CSV
 
-### Trips
+## Trips
+
+Export:
 
 - CSV
 - GeoJSON
 - GPX
 
----
+Custom-point metadata may include:
 
-## 23. Sensitive coordinates
+- `customPointId`
+- `customType`
+- `priority`
 
-FieldScout can export field records with obscured coordinates.
+## Records
 
-For example:
+Export:
 
-`1000 m`
+- CSV
+- GeoJSON
+- obscured-coordinate CSV
 
-FieldScout generates deterministic offset coordinates while preserving the original local record.
+## Sensitive coordinates
 
-This is useful for preliminary sharing of sensitive biological records.
+FieldScout can generate deterministic obscured coordinates without overwriting original GPS values.
 
----
+## Backup JSON
 
-## 24. Backup and restore
+Backup may include:
 
-FieldScout can export a complete:
-
-**FieldScout Backup JSON**
-
-The backup contains:
-
-- Local Profile
+- local profile
 - settings
-- trips
-- field records
-- local photos
+- Custom Point Library
+- Trips
+- records
+- photos
 - occurrence cache
 
-The backup can later be imported to restore the workspace.
+A backup can therefore contain sensitive field information such as precise coordinates, notes, specimen IDs, and photographs.
 
-Until cloud sync exists, regular backups are recommended.
+Treat backup files as **research data**, not public repository files.
 
 ---
 
-## 25. Offline support
+# 13. Local-first architecture
 
-FieldScout is a PWA.
+FieldScout currently uses:
 
-Current offline capabilities include:
+- static frontend
+- GitHub Pages
+- Leaflet
+- IndexedDB
+- Service Worker
+- public APIs
 
-- app shell
-- saved Trips
-- field records
-- local photos
-- occurrence cache
-- optional raster PMTiles
+It does not currently use:
 
-### Offline PMTiles
+- authenticated accounts
+- cloud database
+- automatic cloud sync
+- server-side API proxy
 
-Users can import their own:
+IndexedDB stores include:
 
-`.pmtiles`
+- `profiles`
+- `settings`
+- `trips`
+- `records`
+- `photos`
+- `cache`
 
-through:
+Custom Points are currently stored in:
 
-**Settings → Offline map**
+`settings.customPoints`
 
-The repository does not bundle a Taiwan basemap because:
-
-- map licensing varies
-- large archives do not belong in the repository
-- users may require different zoom levels and regions
+The startup email is only a local workspace key. Changing device or browser does not synchronize data.
 
 ---
 
-## 26. GitHub Pages deployment
+# 14. Known limitations
 
-Repository:
+## Candidate ranking is not an SDM
 
+Do not interpret the score as habitat suitability, abundance, occupancy, or occurrence probability.
+
+## Route optimization is not road routing
+
+Nearest-neighbor uses straight-line distances. Google Maps handles actual road navigation.
+
+## Third-party APIs can fail
+
+FieldScout depends on GBIF, iNaturalist, TaiCOL, and map providers.
+
+Rate limits, outages, CORS changes, or API schema changes can temporarily affect functionality.
+
+## iNaturalist country Place resolution
+
+International iNaturalist searches require country-to-Place resolution.
+
+If this fails, iNaturalist may be unavailable for that search while GBIF remains usable.
+
+## Search result limits
+
+The current release is intended for field scouting, not exhaustive database downloads.
+
+Typical single-search caps are approximately:
+
+- GBIF: 300
+- iNaturalist: 200
+
+## Browser storage
+
+Large numbers of photos can consume significant IndexedDB storage, especially on iOS.
+
+Export backups regularly.
+
+---
+
+# 15. GitHub Pages deployment and updates
+
+Repository:  
 https://github.com/YCHsiao-TW/FieldScout
 
-In GitHub:
-
-**Settings → Pages**
-
-Select:
-
-`Deploy from a branch`
-
-Branch:
-
-`main`
-
-Folder:
-
-`/(root)`
-
-Live URL:
-
+Live site:  
 https://ychsiao-tw.github.io/FieldScout/
 
+## Files normally updated in the repository root
+
+- `index.html`
+- `app.js`
+- `api.js`
+- `db.js`
+- `utils.js`
+- `ranking.js`
+- `styles.css`
+- `sw.js`
+- `manifest.webmanifest`
+- `README.md`
+- `README_ZH.md`
+- `README_EN.md`
+
+## Cache-busting test URL
+
+After deploying v0.16.0:
+
+`https://ychsiao-tw.github.io/FieldScout/?v=0160`
+
+The query string is only for cache busting. It does not create a separate data workspace.
+
+## Do not clear Safari site data casually
+
+Clearing site data may also delete:
+
+- IndexedDB
+- Trips
+- records
+- photos
+- settings
+- Custom Point Library
+
+Export a Backup JSON first if a full reset is ever necessary.
+
 ---
 
-## 27. Current architecture
+## Project layout
 
 ```text
-FieldScout
-│
-├── GitHub Pages
-│
-├── HTML / CSS / JavaScript
-│
-├── Leaflet
-│   ├── OSM
-│   ├── OpenTopoMap
-│   ├── CyclOSM
-│   └── PMTiles
-│
-├── Taxonomy
-│   ├── TaiCOL
-│   ├── GBIF
-│   └── iNaturalist
-│
-├── Occurrence
-│   ├── GBIF
-│   └── iNaturalist
-│
-├── IndexedDB
-│   ├── Local Profiles
-│   ├── Trips
-│   ├── Records
-│   ├── Photos
-│   └── Cache
-│
-└── Google Maps navigation
+FieldScout/
+├── index.html
+├── app.js
+├── api.js
+├── db.js
+├── ranking.js
+├── utils.js
+├── styles.css
+├── sw.js
+├── manifest.webmanifest
+├── README.md
+├── README_ZH.md
+└── README_EN.md
 ```
 
----
-
-## 28. Current limitations
-
-Because FieldScout currently runs as a static GitHub Pages app:
-
-- no real account authentication
-- no cross-device synchronization
-- no multi-user collaboration
-- no cloud photo storage
-- no central community database
-- no server-side API proxy
-- no server-side coordinate privacy
-- no server-side cache
-- third-party APIs remain dependent on CORS and external service availability
+The legacy `offline/` directory is no longer required and has been removed.
 
 ---
 
-## 29. Future backend
+## Design principles
 
-A future Firebase-based architecture can add:
+FieldScout currently follows these principles:
 
-### Authentication
+1. prioritize real field workflows over feature accumulation
+2. keep data local and inspectable
+3. preserve provenance for public occurrence records
+4. keep candidate ranking explainable
+5. distinguish planned targets from actual field records
+6. never overwrite original coordinates when generating obscured exports
+7. keep the static GitHub Pages architecture simple until a backend is truly needed
 
-- Google login
-- Gmail account authentication
+FieldScout is best described as a:
 
-### Firestore
+> **biodiversity field scouting and field-recording decision-support tool**
 
-- cloud Trips
-- field records
-- settings
-- shared projects
-
-### Cloud Storage
-
-- field photos
-- specimen photos
-- habitat photos
-
-### Firebase Functions / API proxy
-
-This would be the appropriate place to reconsider TBIA and TBN.
-
-A backend proxy can provide:
-
-- stable server-side API requests
-- caching
-- normalization
-- pagination
-- CORS handling
-- rate-limit management
-
-### Community features
-
-Possible future features include:
-
-- public records
-- shared projects
-- contributor attribution
-- moderation
-- sensitive-coordinate policies
-
----
-
-## 30. Project scope
-
-FieldScout is not:
-
-- a Species Distribution Model
-- an automated taxonomic identification system
-- an official biodiversity database
-- a navigation service itself
-
-FieldScout is:
-
-> **an interface that turns public biodiversity records into practical field scouting, route planning, navigation, and recording workflows.**
-
-Candidate-site ranking should be interpreted as fieldwork decision support rather than ecological-model output.
-
----
-
-## 31. Version
-
-Current release:
-
-**FieldScout v0.16.0**
-
-Current architecture:
-
-**Static / GitHub Pages / Local-first**
-
-A future major release can introduce the backend layer.
+rather than an SDM platform, automatic identification system, or cloud specimen database.
