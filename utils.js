@@ -94,12 +94,22 @@ export function obscurePoint(lat,lon,radiusM=1000,seed=""){
   const angle=(h%360)*Math.PI/180,radial=radiusM*(.45+((h>>>8)%55)/100);
   return {lat:lat+(radial*Math.cos(angle))/111320,lon:lon+(radial*Math.sin(angle))/(111320*Math.max(.15,Math.cos(lat*Math.PI/180)))};
 }
-export function qcRecord(r,records){
+export function qcRecord(r,records,countryCode=""){
   const issues=[];
   if(!r.specimenId)issues.push("缺標本／紀錄號");
   if(r.lat==null||r.lon==null)issues.push("缺 GPS");
   if(r.accuracyM!=null&&r.accuracyM>1000)issues.push("GPS 誤差 > 1000 m");
-  if(r.lat!=null&&(r.lat<20||r.lat>27||r.lon<118||r.lon>124))issues.push("座標可能不在臺灣");
+
+  // Preserve the useful Taiwan boundary check for Taiwan workspaces,
+  // but do not apply a Taiwan-only rule to international projects.
+  if(
+    countryCode==="TW" &&
+    r.lat!=null &&
+    (r.lat<20||r.lat>27||r.lon<118||r.lon>124)
+  ){
+    issues.push("座標可能不在臺灣");
+  }
+
   if(records.some(x=>x.id!==r.id&&x.specimenId===r.specimenId))issues.push("標本／紀錄號重複");
   if((r.count||0)<1)issues.push("數量異常");
   return issues;

@@ -1,23 +1,71 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.15.0";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.15.0";
-import {taxonomy,occurrences} from "./api.js?v=0.15.0";
-import {rankCandidates} from "./ranking.js?v=0.15.0";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.16.0";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.16.0";
+import {taxonomy,occurrences} from "./api.js?v=0.16.0";
+import {rankCandidates} from "./ranking.js?v=0.16.0";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+
+const COUNTRIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AS","American Samoa"],["AD","Andorra"],["AO","Angola"],["AI","Anguilla"],["AQ","Antarctica"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AW","Aruba"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BM","Bermuda"],["BT","Bhutan"],["BO","Bolivia"],["BQ","Bonaire, Sint Eustatius and Saba"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BV","Bouvet Island"],["BR","Brazil"],["IO","British Indian Ocean Territory"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["KY","Cayman Islands"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CX","Christmas Island"],["CC","Cocos (Keeling) Islands"],["CO","Colombia"],["KM","Comoros"],["CK","Cook Islands"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CW","Curaçao"],["CY","Cyprus"],["CZ","Czechia"],["CI","Côte d'Ivoire"],["CD","Democratic Republic of the Congo"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FK","Falkland Islands (Malvinas)"],["FO","Faroe Islands"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GF","French Guiana"],["PF","French Polynesia"],["TF","French Southern Territories"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GI","Gibraltar"],["GR","Greece"],["GL","Greenland"],["GD","Grenada"],["GP","Guadeloupe"],["GU","Guam"],["GT","Guatemala"],["GG","Guernsey"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HM","Heard Island and McDonald Islands"],["HN","Honduras"],["HK","Hong Kong"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IM","Isle of Man"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JE","Jersey"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MO","Macao"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MQ","Martinique"],["MR","Mauritania"],["MU","Mauritius"],["YT","Mayotte"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MS","Montserrat"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NC","New Caledonia"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NU","Niue"],["NF","Norfolk Island"],["KP","North Korea"],["MK","North Macedonia"],["MP","Northern Mariana Islands"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PN","Pitcairn"],["PL","Poland"],["PT","Portugal"],["PR","Puerto Rico"],["QA","Qatar"],["CG","Republic of the Congo"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["RE","Réunion"],["BL","Saint Barthélemy"],["SH","Saint Helena, Ascension and Tristan da Cunha"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["MF","Saint Martin (French part)"],["PM","Saint Pierre and Miquelon"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SX","Sint Maarten (Dutch part)"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["GS","South Georgia and the South Sandwich Islands"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SJ","Svalbard and Jan Mayen"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TK","Tokelau"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TM","Turkmenistan"],["TC","Turks and Caicos Islands"],["TV","Tuvalu"],["TR","Türkiye"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UM","United States Minor Outlying Islands"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["VG","Virgin Islands, British"],["VI","Virgin Islands, U.S."],["WF","Wallis and Futuna"],["EH","Western Sahara"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"],["AX","Åland Islands"]];
+const countryDisplayNames=typeof Intl.DisplayNames==="function"
+  ? new Intl.DisplayNames(["zh-Hant"],{type:"region"})
+  : null;
+
+function countryLabel(code,englishName=""){
+  if(code==="ALL")return "全球（不限制國家）";
+  try{return countryDisplayNames?.of(code)||englishName||code}
+  catch(_){return englishName||code}
+}
+
+function searchContext(){
+  return {
+    countryCode:state.profile?.countryCode||"TW",
+    countryName:state.profile?.countryName||"Taiwan"
+  };
+}
+
 const state={
   profile:null,settings:null,map:null,cluster:null,tripLayer:null,me:null,currentPos:null,
   taxon:null,allRecords:[],filtered:[],markerMap:new Map(),candidates:[],
   trips:[],activeTrip:null,records:[],recordGps:null,track:[],trackWatch:null,
   baseLayers:{},activeBaseLayer:null,
   selectedOccurrenceId:null,selectedTripPointId:null,
-  fieldModeIndex:0,fieldModeReturn:false
+  fieldModeIndex:0,fieldModeReturn:false,
+  customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null
 };
 const setStatus=t=>$("#status").textContent=t;
 
 async function boot(){
+  setupCountrySelector();
   setupGate();
   setupStatic();
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(console.warn);
+}
+
+function setupCountrySelector(){
+  const select=$("#profileCountry");
+  if(!select)return;
+
+  const priority=["TW","JP","KR","CN","HK","MO","SG","MY","TH","PH","ID","VN","AU","NZ","US","CA","GB"];
+  const byCode=new Map(COUNTRIES);
+
+  const options=[
+    ["ALL","Global"],
+    ...priority.map(code=>[code,byCode.get(code)]).filter(x=>x[1]),
+    ...COUNTRIES.filter(([code])=>!priority.includes(code))
+      .sort((a,b)=>countryLabel(a[0],a[1]).localeCompare(countryLabel(b[0],b[1]),"zh-Hant"))
+  ];
+
+  const seen=new Set();
+  select.innerHTML=options
+    .filter(([code])=>{
+      if(seen.has(code))return false;
+      seen.add(code);
+      return true;
+    })
+    .map(([code,name])=>`<option value="${esc(code)}" data-name="${esc(name)}">${esc(countryLabel(code,name))}${code!=="ALL"?` (${code})`:""}</option>`)
+    .join("");
+
+  select.value="TW";
 }
 
 function setupGate(){
@@ -37,14 +85,34 @@ async function openProfile(){
   $("#profileError").textContent="";
 
   try{
-    const id=hashEmail(email),existing=await get("profiles",id);
-    state.profile=existing||{id,email,createdAt:new Date().toISOString()};
+    const countryCode=$("#profileCountry").value||"TW";
+    const selectedOption=$("#profileCountry").selectedOptions?.[0];
+    const countryName=selectedOption?.dataset?.name||countryCode;
+    const countryLabelText=countryLabel(countryCode,countryName);
+
+    // Keep Taiwan on the legacy email-only profile ID so existing users retain
+    // all previous Taiwan data. Other countries get their own local workspace.
+    const id=countryCode==="TW"
+      ? hashEmail(email)
+      : hashEmail(`${email}|${countryCode}`);
+
+    const existing=await get("profiles",id);
+    state.profile={
+      ...(existing||{}),
+      id,
+      email,
+      countryCode,
+      countryName,
+      countryLabel:countryLabelText,
+      createdAt:existing?.createdAt||new Date().toISOString()
+    };
     await put("profiles",{...state.profile,lastOpenedAt:new Date().toISOString()});
 
     state.settings=
       await get("settings",`${id}:settings`) ||
-      {id:`${id}:settings`,profileId:id,specimenPrefix:"FS",specimenCounter:1};
+      {id:`${id}:settings`,profileId:id,specimenPrefix:"FS",specimenCounter:1,customPoints:[]};
 
+    if(!Array.isArray(state.settings.customPoints))state.settings.customPoints=[];
     await put("settings",state.settings);
 
     // v0.14.0 removed Offline PMTiles. Clean legacy map blobs if present.
@@ -57,8 +125,10 @@ async function openProfile(){
     $("#profileGate").classList.add("hidden");
     $("#app").classList.remove("hidden");
     $("#profileLabel").textContent=email;
+    $("#countryBadge").textContent=countryCode==="ALL"?"GLOBAL":countryCode;
+    $("#countryBadge").title=countryLabelText;
     $("#profileSummary").innerHTML=
-      `${esc(email)}<br><span class="meta">本機 profile ID：${esc(id)}</span>`;
+      `${esc(email)}<br>${esc(countryLabelText)} (${esc(countryCode)})<br><span class="meta">本機 workspace ID：${esc(id)}</span>`;
     $("#specimenPrefix").value=state.settings.specimenPrefix||"FS";
     $("#specimenCounter").value=state.settings.specimenCounter||1;
 
@@ -141,7 +211,12 @@ async function loadProfileData(){
 
 function setupStatic(){
   $$(".tab").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-  $("#locateBtn").onclick=()=>locate(true);$("#customPointBtn").onclick=addCustomPoint;
+  $("#locateBtn").onclick=()=>locate(true);
+  $("#customPointBtn").onclick=()=>openCustomPointEditor();
+  $("#newCustomPointBtn").onclick=()=>openCustomPointEditor();
+  $("#manageCustomPointsBtn").onclick=showCustomPointManager;
+  $("#customPointPickDoneBtn").onclick=finishCustomPointMapPick;
+  $("#customPointPickCancelBtn").onclick=cancelCustomPointMapPick;
   $("#basemapSelect").onchange=()=>selectBasemap($("#basemapSelect").value);
   $("#searchBtn").onclick=searchTaxon;$("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
   let at=null;$("#taxonInput").addEventListener("input",()=>{clearTimeout(at);const q=$("#taxonInput").value.trim();if(q.length<2){$("#autocomplete").classList.add("hidden");return}at=setTimeout(()=>autocomplete(q),250)});
@@ -216,7 +291,10 @@ function switchTab(name){
 }
 
 async function initMap(){
-  state.map=L.map("map",{zoomControl:false}).setView([23.7,121],7);
+  const initialView=state.profile?.countryCode==="TW"
+    ? {center:[23.7,121],zoom:7}
+    : {center:[20,0],zoom:2};
+  state.map=L.map("map",{zoomControl:false}).setView(initialView.center,initialView.zoom);
 
   state.baseLayers.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
     maxZoom:19,
@@ -254,6 +332,17 @@ async function initMap(){
   state.map.on("moveend",()=>{
     if($("#filterMapBounds")?.checked)applyFilters();
   });
+
+  state.map.on("click",e=>{
+    if(!state.customPointPickMode)return;
+    const ll=e.latlng;
+    state.customPointDraft={...(state.customPointDraft||{}),lat:ll.lat,lon:ll.lng};
+    if(state.customPointTempMarker){
+      state.customPointTempMarker.setLatLng(ll);
+    }else{
+      state.customPointTempMarker=L.marker(ll,{draggable:true}).addTo(state.map);
+    }
+  });
 }
 
 function selectBasemap(kind){
@@ -272,22 +361,23 @@ function locate(zoom){
 }
 
 async function autocomplete(q){
-  try{const x=await taxonomy(q);const l=x.suggestions||[];$("#autocomplete").innerHTML=l.map((r,i)=>`<button data-auto="${i}"><strong>${esc(r.commonName||r.scientificName)}</strong><div class="meta"><i>${esc(r.scientificName)}</i> · ${esc(r.rank||"")}</div></button>`).join("")||`<div class="empty">無建議</div>`;$("#autocomplete").classList.remove("hidden");$$("[data-auto]").forEach(b=>b.onclick=()=>{$("#taxonInput").value=l[+b.dataset.auto].scientificName;$("#autocomplete").classList.add("hidden")})}catch(_){}
+  try{const x=await taxonomy(q,searchContext());const l=x.suggestions||[];$("#autocomplete").innerHTML=l.map((r,i)=>`<button data-auto="${i}"><strong>${esc(r.commonName||r.scientificName)}</strong><div class="meta"><i>${esc(r.scientificName)}</i> · ${esc(r.rank||"")}</div></button>`).join("")||`<div class="empty">無建議</div>`;$("#autocomplete").classList.remove("hidden");$$("[data-auto]").forEach(b=>b.onclick=()=>{$("#taxonInput").value=l[+b.dataset.auto].scientificName;$("#autocomplete").classList.add("hidden")})}catch(_){}
 }
 async function searchTaxon(){
   const q=$("#taxonInput").value.trim();if(!q)return;
   $("#searchBtn").disabled=true;setStatus("正在查詢 GBIF、iNaturalist…");
   try{
-    const t=await taxonomy(q);state.taxon=t.best;renderTaxon();
-    const o=await occurrences(state.taxon);state.allRecords=o.records||[];
+    const t=await taxonomy(q,searchContext());state.taxon=t.best;renderTaxon();
+    const o=await occurrences(state.taxon,searchContext());state.allRecords=o.records||[];
     await put("cache",{
       id:`${state.profile.id}:occ:${state.taxon.scientificName.toLowerCase()}`,
       profileId:state.profile.id,query:q.toLowerCase(),taxon:state.taxon,
+      countryCode:state.profile.countryCode,
       records:state.allRecords,savedAt:new Date().toISOString()
     });
     applyFilters();
     updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{});
-    setStatus(`整合 ${state.allRecords.length} 筆；GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
+    setStatus(`${state.profile.countryLabel}：整合 ${state.allRecords.length} 筆；GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
   }catch(e){
     const caches=await byProfile("cache",state.profile.id);
     const key=q.toLowerCase();
@@ -645,6 +735,8 @@ function normalizeTripPoint(p){
 
 function normalizeTrip(t){
   if(!t)return null;
+  t.countryCode=t.countryCode||state.profile?.countryCode||"TW";
+  t.countryName=t.countryName||state.profile?.countryName||"Taiwan";
   t.points=Array.isArray(t.points)
     ? t.points.map(p=>{
         try{return normalizeTripPoint(p)}catch(_){return null}
@@ -664,6 +756,8 @@ async function createDefaultTrip(){
     targetTaxon:state.taxon?.scientificName||"",
     status:"planned",
     notes:"",
+    countryCode:state.profile?.countryCode||"TW",
+    countryName:state.profile?.countryName||"Taiwan",
     points:[],
     track:[],
     createdAt:now.toISOString(),
@@ -705,6 +799,8 @@ async function newTrip(){
     targetTaxon:state.taxon?.scientificName||"",
     status:"planned",
     notes:"",
+    countryCode:state.profile?.countryCode||"TW",
+    countryName:state.profile?.countryName||"Taiwan",
     points:[],
     track:[],
     createdAt:now.toISOString(),
@@ -1264,6 +1360,7 @@ function selectTripPoint(id,scroll=false){
 }
 
 function renderTrips(){
+  renderCustomPointLibraryMeta();
   state.trips=state.trips.map(t=>normalizeTrip(t));
   if(state.activeTrip)state.activeTrip=normalizeTrip(state.activeTrip);
 
@@ -1321,6 +1418,7 @@ function renderTrips(){
           <button data-tfocus="${i}">地圖</button>
           <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(p.lat,p.lon)}">導航此點</a>
           <button data-tvisit="${i}">狀態</button>
+          ${p.customPointId?`<button data-tcustomedit="${i}">編輯自訂點</button>`:""}
           <button data-tup="${i}">上移</button>
           <button data-tdown="${i}">下移</button>
           <button data-tremove="${i}">移除</button>
@@ -1360,6 +1458,12 @@ function renderTrips(){
     const p=pts[+b.dataset.tfocus];
     selectTripPoint(p.id,false);
     if(state.map)state.map.setView([p.lat,p.lon],16);
+  });
+
+  $$("[data-tcustomedit]").forEach(b=>b.onclick=()=>{
+    const p=pts[+b.dataset.tcustomedit];
+    const custom=customPoints().find(x=>x.id===p.customPointId);
+    if(custom)openCustomPointEditor(custom);
   });
 
   $$("[data-tremove]").forEach(b=>b.onclick=async()=>{
@@ -1562,26 +1666,497 @@ async function addAllVisible(){
   }
 }
 
-async function addCustomPoint(){
-  try{
-    const c=state.map.getCenter();
-    const name=prompt("自訂點名稱","自訂探點");
-    if(!name)return;
-    await addPointToTrip({
-      id:crypto.randomUUID(),
-      name,
-      lat:c.lat,
-      lon:c.lng,
-      source:"custom",
-      visitStatus:"unvisited"
+function customPoints(){
+  if(!Array.isArray(state.settings.customPoints))state.settings.customPoints=[];
+  return state.settings.customPoints;
+}
+
+function customPointTypeLabel(type){
+  return ({
+    scout:"自訂探點",
+    sampling:"採集點",
+    parking:"停車點",
+    trailhead:"步道入口",
+    access:"道路／入口",
+    other:"其他"
+  })[type]||"自訂探點";
+}
+
+function customPointPriorityLabel(priority){
+  return ({high:"高",medium:"中",low:"低"})[priority]||"中";
+}
+
+function normalizeCustomPoint(p){
+  return {
+    id:String(p?.id||crypto.randomUUID()),
+    profileId:state.profile.id,
+    countryCode:state.profile?.countryCode||"",
+    name:String(p?.name||"自訂探點"),
+    lat:Number(p?.lat),
+    lon:Number(p?.lon),
+    type:String(p?.type||"scout"),
+    priority:String(p?.priority||"medium"),
+    targetTaxon:String(p?.targetTaxon||""),
+    notes:String(p?.notes||""),
+    createdAt:p?.createdAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+}
+
+async function persistCustomPoints(){
+  state.settings.customPoints=customPoints();
+  await put("settings",state.settings);
+  renderCustomPointLibraryMeta();
+}
+
+function renderCustomPointLibraryMeta(){
+  const box=$("#customPointLibraryMeta");
+  if(box)box.textContent=`${customPoints().length} 個已儲存點位`;
+}
+
+function customPointTripOptions(selectedId=""){
+  return `<option value="">只儲存到點位庫</option>`+
+    state.trips.map(t=>`<option value="${esc(t.id)}" ${String(t.id)===String(selectedId)?"selected":""}>加入：${esc(t.name||"Unnamed trip")}</option>`).join("");
+}
+
+function readCustomPointFormIntoDraft(){
+  const d=state.customPointDraft||{};
+  const lat=Number($("#customPointLat")?.value);
+  const lon=Number($("#customPointLon")?.value);
+  return {
+    ...d,
+    id:d.id||crypto.randomUUID(),
+    name:$("#customPointName")?.value.trim()||"自訂探點",
+    lat:Number.isFinite(lat)?lat:d.lat,
+    lon:Number.isFinite(lon)?lon:d.lon,
+    type:$("#customPointType")?.value||"scout",
+    priority:$("#customPointPriority")?.value||"medium",
+    targetTaxon:$("#customPointTaxon")?.value.trim()||"",
+    notes:$("#customPointNotes")?.value.trim()||"",
+    addTripId:$("#customPointTrip")?.value||""
+  };
+}
+
+function updateCustomPointCoordinateInputs(lat,lon,sourceLabel=""){
+  if(Number.isFinite(Number(lat)))$("#customPointLat").value=Number(lat).toFixed(6);
+  if(Number.isFinite(Number(lon)))$("#customPointLon").value=Number(lon).toFixed(6);
+  const meta=$("#customPointCoordinateMeta");
+  if(meta&&sourceLabel)meta.textContent=`座標來源：${sourceLabel}`;
+}
+
+function parseCoordinatePair(text){
+  const m=String(text||"").trim().match(/(-?\d+(?:\.\d+)?)\s*[,，\s]\s*(-?\d+(?:\.\d+)?)/);
+  if(!m)return null;
+  const lat=Number(m[1]),lon=Number(m[2]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180)return null;
+  return {lat,lon};
+}
+
+function openCustomPointEditor(point=null,options={}){
+  const mapCenter=state.map?.getCenter();
+  const base=options.draft||point||{
+    id:crypto.randomUUID(),
+    name:"自訂探點",
+    lat:mapCenter?.lat??null,
+    lon:mapCenter?.lng??null,
+    type:"scout",
+    priority:"medium",
+    targetTaxon:state.taxon?.scientificName||state.activeTrip?.targetTaxon||"",
+    notes:"",
+    createdAt:new Date().toISOString()
+  };
+
+  state.customPointDraft={
+    ...base,
+    addTripId:options.addTripId??base.addTripId??state.activeTrip?.id??""
+  };
+
+  const d=state.customPointDraft;
+  const isEdit=customPoints().some(x=>x.id===d.id);
+
+  showModal(`
+    <div class="custom-point-editor">
+      <div class="page-kicker">CUSTOM FIELD POINT</div>
+      <h2>${isEdit?"編輯自訂採集點":"新增自訂採集點"}</h2>
+      <p class="meta">點位會永久保存在目前 workspace，可重複加入不同 Trip。</p>
+
+      <label>點位名稱
+        <input id="customPointName" value="${esc(d.name||"")}" placeholder="例如 大雪山林道 23K">
+      </label>
+
+      <div class="coordinate-tool-card">
+        <div class="coordinate-tool-head">
+          <strong>座標</strong>
+          <span id="customPointCoordinateMeta" class="meta">可用 GPS、地圖中心、點地圖或手動輸入</span>
+        </div>
+        <div class="two-col">
+          <label>Latitude<input id="customPointLat" inputmode="decimal" value="${Number.isFinite(Number(d.lat))?Number(d.lat).toFixed(6):""}"></label>
+          <label>Longitude<input id="customPointLon" inputmode="decimal" value="${Number.isFinite(Number(d.lon))?Number(d.lon).toFixed(6):""}"></label>
+        </div>
+        <div class="coordinate-buttons">
+          <button id="customUseGpsBtn" type="button">目前 GPS</button>
+          <button id="customUseCenterBtn" type="button">地圖中心</button>
+          <button id="customPickMapBtn" type="button" class="primary">點地圖指定</button>
+        </div>
+        <div class="coordinate-paste-row">
+          <input id="customCoordinatePaste" placeholder="貼上：24.21783, 120.97621">
+          <button id="customCoordinatePasteBtn" type="button">套用</button>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <label>點位類型
+          <select id="customPointType">
+            ${[
+              ["scout","自訂探點"],["sampling","採集點"],["parking","停車點"],
+              ["trailhead","步道入口"],["access","道路／入口"],["other","其他"]
+            ].map(([v,l])=>`<option value="${v}" ${d.type===v?"selected":""}>${l}</option>`).join("")}
+          </select>
+        </label>
+        <label>優先度
+          <select id="customPointPriority">
+            <option value="high" ${d.priority==="high"?"selected":""}>高</option>
+            <option value="medium" ${d.priority==="medium"?"selected":""}>中</option>
+            <option value="low" ${d.priority==="low"?"selected":""}>低</option>
+          </select>
+        </label>
+      </div>
+
+      <label>目標物種
+        <input id="customPointTaxon" value="${esc(d.targetTaxon||"")}" placeholder="Scientific name / optional">
+      </label>
+
+      <label>備註
+        <textarea id="customPointNotes" rows="3" placeholder="林相、道路狀況、探點理由…">${esc(d.notes||"")}</textarea>
+      </label>
+
+      <label>儲存後
+        <select id="customPointTrip">${customPointTripOptions(d.addTripId||"")}</select>
+      </label>
+
+      <div class="button-row custom-editor-actions">
+        <button id="saveCustomPointBtn" type="button" class="primary">${isEdit?"儲存變更":"儲存點位"}</button>
+        ${isEdit?`<button id="deleteCustomPointFromEditorBtn" type="button" class="danger-soft">刪除點位</button>`:""}
+      </div>
+    </div>
+  `);
+
+  $("#customUseCenterBtn").onclick=()=>{
+    const c=state.map?.getCenter();
+    if(c)updateCustomPointCoordinateInputs(c.lat,c.lng,"目前地圖中心");
+  };
+
+  $("#customUseGpsBtn").onclick=()=>{
+    if(!navigator.geolocation){
+      setStatus("此裝置不支援 GPS。");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      p=>{
+        state.currentPos={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy};
+        updateCustomPointCoordinateInputs(p.coords.latitude,p.coords.longitude,`目前 GPS ±${Math.round(p.coords.accuracy)} m`);
+      },
+      e=>setStatus("GPS："+e.message),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
+    );
+  };
+
+  $("#customCoordinatePasteBtn").onclick=()=>{
+    const parsed=parseCoordinatePair($("#customCoordinatePaste").value);
+    if(!parsed){
+      setStatus("無法辨識座標，請使用「緯度, 經度」。");
+      return;
+    }
+    updateCustomPointCoordinateInputs(parsed.lat,parsed.lon,"貼上座標");
+  };
+
+  $("#customPickMapBtn").onclick=startCustomPointMapPick;
+  $("#saveCustomPointBtn").onclick=saveCustomPointFromEditor;
+
+  $("#deleteCustomPointFromEditorBtn")?.addEventListener("click",async()=>{
+    const id=state.customPointDraft?.id;
+    $("#modal").classList.add("hidden");
+    if(id)await deleteCustomPoint(id);
+  });
+}
+
+function startCustomPointMapPick(){
+  state.customPointDraft=readCustomPointFormIntoDraft();
+  state.customPointPickMode=true;
+  $("#modal").classList.add("hidden");
+  $("#customPointPickBar").classList.remove("hidden");
+
+  const lat=Number(state.customPointDraft.lat);
+  const lon=Number(state.customPointDraft.lon);
+  const start=Number.isFinite(lat)&&Number.isFinite(lon)
+    ? L.latLng(lat,lon)
+    : state.map.getCenter();
+
+  if(state.customPointTempMarker)state.map.removeLayer(state.customPointTempMarker);
+  state.customPointTempMarker=L.marker(start,{draggable:true}).addTo(state.map);
+  state.customPointTempMarker.on("dragend",()=>{
+    const ll=state.customPointTempMarker.getLatLng();
+    state.customPointDraft.lat=ll.lat;
+    state.customPointDraft.lon=ll.lng;
+  });
+
+  state.map.setView(start,Math.max(state.map.getZoom(),15));
+  setStatus("地圖選點：點地圖或拖曳 marker，完成後按「完成」。");
+}
+
+function finishCustomPointMapPick(){
+  if(!state.customPointPickMode)return;
+  const ll=state.customPointTempMarker?.getLatLng();
+  if(ll){
+    state.customPointDraft.lat=ll.lat;
+    state.customPointDraft.lon=ll.lng;
+  }
+  state.customPointPickMode=false;
+  $("#customPointPickBar").classList.add("hidden");
+  if(state.customPointTempMarker){
+    state.map.removeLayer(state.customPointTempMarker);
+    state.customPointTempMarker=null;
+  }
+  openCustomPointEditor(null,{draft:state.customPointDraft});
+}
+
+function cancelCustomPointMapPick(){
+  state.customPointPickMode=false;
+  $("#customPointPickBar").classList.add("hidden");
+  if(state.customPointTempMarker){
+    state.map.removeLayer(state.customPointTempMarker);
+    state.customPointTempMarker=null;
+  }
+  openCustomPointEditor(null,{draft:state.customPointDraft});
+}
+
+async function addCustomPointToTrip(point,tripId){
+  const trip=state.trips.find(t=>t.id===tripId)||state.activeTrip;
+  if(!trip)return false;
+
+  trip.points=Array.isArray(trip.points)?trip.points:[];
+  if(trip.points.some(p=>p.customPointId===point.id)){
+    setStatus(`「${point.name}」已在行程「${trip.name}」中。`);
+    return false;
+  }
+
+  trip.points.push(normalizeTripPoint({
+    id:crypto.randomUUID(),
+    customPointId:point.id,
+    name:point.name,
+    lat:point.lat,
+    lon:point.lon,
+    source:"custom",
+    customType:point.type,
+    priority:point.priority,
+    notes:point.notes,
+    targetTaxon:point.targetTaxon,
+    countryCode:point.countryCode,
+    visitStatus:"unvisited"
+  }));
+
+  trip.updatedAt=new Date().toISOString();
+  await put("trips",trip);
+
+  if(state.activeTrip?.id===trip.id)state.activeTrip=normalizeTrip(trip);
+  const idx=state.trips.findIndex(t=>t.id===trip.id);
+  if(idx>=0)state.trips[idx]=trip;
+  return true;
+}
+
+async function syncCustomPointToTrips(point){
+  for(const trip of state.trips){
+    let changed=false;
+    trip.points=(trip.points||[]).map(p=>{
+      if(p.customPointId!==point.id)return p;
+      changed=true;
+      return {
+        ...p,
+        name:point.name,
+        lat:point.lat,
+        lon:point.lon,
+        customType:point.type,
+        priority:point.priority,
+        notes:point.notes,
+        targetTaxon:point.targetTaxon,
+        countryCode:point.countryCode
+      };
     });
-  }catch(e){
-    setStatus(`新增自訂點失敗：${e.message}`);
+    if(changed){
+      trip.updatedAt=new Date().toISOString();
+      await put("trips",trip);
+    }
+  }
+  if(state.activeTrip){
+    state.activeTrip=normalizeTrip(state.trips.find(t=>t.id===state.activeTrip.id)||state.activeTrip);
   }
 }
 
-function exportTripCsv(){const pts=state.activeTrip?.points||[],rows=[["order","name","latitude","longitude","source","visitStatus","arrivalAt","arrivalDistanceM"]];pts.forEach((p,i)=>rows.push([i+1,p.name,p.lat,p.lon,p.source,p.visitStatus,p.arrivalAt||"",p.arrivalDistanceM||""]));downloadText("fieldscout_trip.csv","text/csv;charset=utf-8",toCSV(rows))}
-function exportTripGeoJSON(){downloadText("fieldscout_trip.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.activeTrip?.points||[],p=>({name:p.name,source:p.source,visitStatus:p.visitStatus})),null,2))}
+async function saveCustomPointFromEditor(){
+  const d=readCustomPointFormIntoDraft();
+  if(!d.name.trim()){
+    setStatus("請輸入點位名稱。");
+    return;
+  }
+  if(!Number.isFinite(Number(d.lat))||!Number.isFinite(Number(d.lon))||
+     Number(d.lat)<-90||Number(d.lat)>90||Number(d.lon)<-180||Number(d.lon)>180){
+    setStatus("請提供有效經緯度。");
+    return;
+  }
+
+  const existed=customPoints().find(x=>x.id===d.id);
+  const point=normalizeCustomPoint({...d,createdAt:existed?.createdAt||d.createdAt});
+  const arr=customPoints();
+  const idx=arr.findIndex(x=>x.id===point.id);
+  if(idx>=0)arr[idx]=point;
+  else arr.unshift(point);
+
+  await persistCustomPoints();
+  await syncCustomPointToTrips(point);
+
+  let added=false;
+  if(d.addTripId){
+    added=await addCustomPointToTrip(point,d.addTripId);
+  }
+
+  $("#modal").classList.add("hidden");
+  renderTrips();
+  renderFieldMode();
+  focusCustomPoint(point);
+  setStatus(
+    added
+      ? `已儲存「${point.name}」並加入行程。`
+      : `已儲存自訂點「${point.name}」。`
+  );
+}
+
+function focusCustomPoint(point){
+  if(!point||!state.map)return;
+  const lat=Number(point.lat),lon=Number(point.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+
+  state.map.setView([lat,lon],Math.max(state.map.getZoom(),16));
+  if(state.customPointPreviewMarker)state.map.removeLayer(state.customPointPreviewMarker);
+  state.customPointPreviewMarker=L.marker([lat,lon])
+    .bindPopup(`<strong>${esc(point.name)}</strong><br><span class="meta">${esc(customPointTypeLabel(point.type))} · 優先度 ${esc(customPointPriorityLabel(point.priority))}</span>`)
+    .addTo(state.map)
+    .openPopup();
+}
+
+async function deleteCustomPoint(id){
+  const point=customPoints().find(x=>x.id===id);
+  if(!point)return;
+  const linked=state.trips.reduce((n,t)=>n+(t.points||[]).filter(p=>p.customPointId===id).length,0);
+
+  if(!confirm(
+    `刪除自訂點「${point.name}」？`+
+    (linked?`\n\n它已被 ${linked} 個 Trip point 使用。Trip 中的點位會保留為獨立快照。`:"")
+  ))return;
+
+  state.settings.customPoints=customPoints().filter(x=>x.id!==id);
+  await persistCustomPoints();
+
+  for(const trip of state.trips){
+    let changed=false;
+    trip.points=(trip.points||[]).map(p=>{
+      if(p.customPointId!==id)return p;
+      changed=true;
+      const copy={...p};
+      delete copy.customPointId;
+      return copy;
+    });
+    if(changed){
+      trip.updatedAt=new Date().toISOString();
+      await put("trips",trip);
+    }
+  }
+
+  if(state.activeTrip){
+    state.activeTrip=normalizeTrip(state.trips.find(t=>t.id===state.activeTrip.id)||state.activeTrip);
+  }
+  renderTrips();
+  renderFieldMode();
+  setStatus(`已刪除自訂點「${point.name}」，Trip 快照已保留。`);
+}
+
+function customPointManagerRow(p){
+  const linked=state.trips.reduce((n,t)=>n+(t.points||[]).filter(x=>x.customPointId===p.id).length,0);
+  return `
+    <article class="custom-manager-item">
+      <div class="card-top">
+        <div>
+          <h3>${esc(p.name)}</h3>
+          <div class="meta">
+            ${esc(customPointTypeLabel(p.type))} · 優先度 ${esc(customPointPriorityLabel(p.priority))}
+            · ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}
+            ${p.targetTaxon?`<br><i>${esc(p.targetTaxon)}</i>`:""}
+            ${p.notes?`<br>${esc(p.notes)}`:""}
+            ${linked?`<br>${linked} 個 Trip point 使用中`:""}
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button data-custom-focus="${esc(p.id)}">地圖</button>
+        <button data-custom-edit="${esc(p.id)}">編輯</button>
+        <button data-custom-add="${esc(p.id)}" ${state.activeTrip?"":"disabled"}>加入目前行程</button>
+        <button data-custom-delete="${esc(p.id)}" class="danger-soft">刪除</button>
+      </div>
+    </article>`;
+}
+
+function wireCustomPointManager(){
+  $$("[data-custom-focus]").forEach(b=>b.onclick=()=>{
+    const p=customPoints().find(x=>x.id===b.dataset.customFocus);
+    $("#modal").classList.add("hidden");
+    focusCustomPoint(p);
+  });
+  $$("[data-custom-edit]").forEach(b=>b.onclick=()=>{
+    const p=customPoints().find(x=>x.id===b.dataset.customEdit);
+    if(p)openCustomPointEditor(p);
+  });
+  $$("[data-custom-add]").forEach(b=>b.onclick=async()=>{
+    const p=customPoints().find(x=>x.id===b.dataset.customAdd);
+    if(!p||!state.activeTrip)return;
+    const added=await addCustomPointToTrip(p,state.activeTrip.id);
+    renderTrips();
+    if(added)setStatus(`已將「${p.name}」加入目前行程。`);
+    showCustomPointManager();
+  });
+  $$("[data-custom-delete]").forEach(b=>b.onclick=async()=>{
+    $("#modal").classList.add("hidden");
+    await deleteCustomPoint(b.dataset.customDelete);
+    showCustomPointManager();
+  });
+  document.getElementById("customManagerNewBtn")?.addEventListener("click",()=>openCustomPointEditor());
+}
+
+function showCustomPointManager(){
+  const pts=customPoints();
+  showModal(`
+    <div class="custom-point-manager">
+      <div class="trip-manager-head">
+        <div>
+          <div class="page-kicker">CUSTOM POINT LIBRARY</div>
+          <h2>自訂採集點</h2>
+          <p class="meta">永久保存在目前 ${esc(state.profile?.countryLabel||"")} workspace，可重複加入不同 Trip。</p>
+        </div>
+        <button id="customManagerNewBtn" type="button" class="primary">＋ 新增點位</button>
+      </div>
+      <div class="custom-manager-list">
+        ${pts.length?pts.map(customPointManagerRow).join(""):`<div class="trip-manager-empty">尚未建立自訂採集點。</div>`}
+      </div>
+    </div>
+  `);
+  wireCustomPointManager();
+}
+
+function exportTripCsv(){
+  const pts=state.activeTrip?.points||[];
+  const rows=[["order","name","latitude","longitude","source","customPointId","customType","priority","visitStatus","arrivalAt","arrivalDistanceM"]];
+  pts.forEach((p,i)=>rows.push([i+1,p.name,p.lat,p.lon,p.source,p.customPointId||"",p.customType||"",p.priority||"",p.visitStatus,p.arrivalAt||"",p.arrivalDistanceM||""]));
+  downloadText("fieldscout_trip.csv","text/csv;charset=utf-8",toCSV(rows));
+}
+function exportTripGeoJSON(){downloadText("fieldscout_trip.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.activeTrip?.points||[],p=>({name:p.name,source:p.source,customPointId:p.customPointId||null,customType:p.customType||null,priority:p.priority||null,visitStatus:p.visitStatus})),null,2))}
 function exportTripGpx(){downloadText("fieldscout_trip.gpx","application/gpx+xml",gpxWaypoints(state.activeTrip?.points||[],state.activeTrip?.name||"FieldScout Trip"))}
 async function importGpx(e){
   const f=e.target.files?.[0];
@@ -1709,6 +2284,7 @@ async function saveRecord(e){
   const r={
     id,
     profileId:state.profile.id,
+    countryCode:state.profile?.countryCode||"",
     specimenId:$("#specimenId").value.trim(),
     count:Math.max(1,+$("#recordCount").value||1),
     taxon:$("#recordTaxon").value.trim(),
@@ -1787,7 +2363,7 @@ function renderRecords(){
 
   $("#recordList").innerHTML=state.records.length
     ? state.records.map((r,i)=>{
-        const issues=qcRecord(r,state.records);
+        const issues=qcRecord(r,state.records,state.profile?.countryCode||"");
         const linkedTrip=state.trips.find(t=>t.id===r.tripId);
         const linkedPoint=(linkedTrip?.points||[]).find(p=>p.id===r.tripPointId);
         const lat=Number(r.lat),lon=Number(r.lon);
@@ -1826,11 +2402,11 @@ function renderRecords(){
 
 async function showPhotos(r){const ps=(await byProfile("photos",state.profile.id)).filter(p=>r.photoIds.includes(p.id));const urls=ps.map(p=>URL.createObjectURL(p.blob));showModal(`<h2>${esc(r.specimenId)}</h2><div class="photo-grid">${urls.map(u=>`<img src="${u}">`).join("")}</div>`)}
 function exportRecordsCsv(){
-  const rows=[["id","specimenId","count","taxon","microhabitat","method","notes","latitude","longitude","accuracyM","tripId","tripPointId","createdAt","updatedAt"]];
-  state.records.forEach(r=>rows.push([r.id,r.specimenId,r.count,r.taxon,r.microhabitat,r.method,r.notes,r.lat??"",r.lon??"",r.accuracyM??"",r.tripId||"",r.tripPointId||"",r.createdAt,r.updatedAt]));
+  const rows=[["id","countryCode","specimenId","count","taxon","microhabitat","method","notes","latitude","longitude","accuracyM","tripId","tripPointId","createdAt","updatedAt"]];
+  state.records.forEach(r=>rows.push([r.id,r.countryCode||state.profile?.countryCode||"",r.specimenId,r.count,r.taxon,r.microhabitat,r.method,r.notes,r.lat??"",r.lon??"",r.accuracyM??"",r.tripId||"",r.tripPointId||"",r.createdAt,r.updatedAt]));
   downloadText("fieldscout_records.csv","text/csv;charset=utf-8",toCSV(rows));
 }
-function exportRecordsGeoJSON(){downloadText("fieldscout_records.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.records,r=>({specimenId:r.specimenId,count:r.count,taxon:r.taxon,microhabitat:r.microhabitat,method:r.method,notes:r.notes,accuracyM:r.accuracyM,tripId:r.tripId||null,tripPointId:r.tripPointId||null})),null,2))}
+function exportRecordsGeoJSON(){downloadText("fieldscout_records.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.records,r=>({specimenId:r.specimenId,count:r.count,taxon:r.taxon,microhabitat:r.microhabitat,method:r.method,notes:r.notes,accuracyM:r.accuracyM,countryCode:r.countryCode||state.profile?.countryCode||null,tripId:r.tripId||null,tripPointId:r.tripPointId||null})),null,2))}
 function exportSensitiveCsv(){const radius=+prompt("座標模糊半徑（公尺）","1000")||1000,rows=[["specimenId","taxon","latitude","longitude","obscureRadiusM"]];state.records.forEach(r=>{if(r.lat==null)return;const p=obscurePoint(r.lat,r.lon,radius,`${state.profile.id}:${r.id}`);rows.push([r.specimenId,r.taxon,p.lat,p.lon,radius])});downloadText("fieldscout_records_obscured.csv","text/csv;charset=utf-8",toCSV(rows))}
 
 function exportSearchCsv(){
@@ -1909,7 +2485,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"0.15.0",
+      version:"0.16.0",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,

@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.15.0</title>
+  <title>FieldScout v0.16.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -19,23 +19,30 @@
     <div class="gate-card">
       <div class="eyebrow">FIELD DATA • LOCAL-FIRST • GITHUB PAGES</div>
       <h1>FieldScout</h1>
-      <p>輸入電子郵件以開啟本機資料空間。相同瀏覽器中，相同 email 會開啟同一份 Trips、採集紀錄與設定。</p>
+      <p>選擇使用國家並輸入電子郵件，開啟這個裝置上的 FieldScout 工作空間。</p>
+      <label>使用國家
+        <select id="profileCountry"></select>
+      </label>
       <label>電子郵件
         <input id="profileEmail" type="email" autocomplete="email" placeholder="you@example.com">
       </label>
       <button id="openProfileBtn" class="primary big">開啟 FieldScout</button>
       <p id="profileError" class="error"></p>
-      <div class="privacy-note">這不是帳號登入。Email 只作為本機 IndexedDB 的 profile key，不會送到 FieldScout 伺服器。換裝置不會自動同步。</div>
+      <div class="privacy-note">
+        這不是帳號登入。Email 與使用國家只用來識別本機 IndexedDB workspace，不會送到 FieldScout 伺服器。
+        同一裝置中「相同 email + 相同國家」會開啟同一份資料；不同國家會使用獨立 workspace。
+      </div>
     </div>
   </section>
 
   <main id="app" class="hidden">
     <header class="topbar">
       <div>
-        <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.15.0 Trip Manager</span></h1>
+        <div class="eyebrow">GLOBAL BIODIVERSITY FIELD TOOL</div>
+        <h1>FieldScout <span class="version">v0.16.0 Global</span></h1>
       </div>
       <div class="top-actions">
+        <span id="countryBadge" class="badge">TW</span>
         <span id="netBadge" class="badge">ONLINE</span>
         <button id="profileBtn" class="profile-button">
           <span id="profileLabel">Profile</span>
@@ -55,7 +62,17 @@
       <section id="mapWrap">
         <div id="map"></div>
         <button id="locateBtn" class="map-fab">◎</button>
-        <button id="customPointBtn" class="map-fab add-point">＋</button>
+        <button id="customPointBtn" class="map-fab add-point custom-point-fab">＋ 自訂點</button>
+        <div id="customPointPickBar" class="map-pick-bar hidden">
+          <div>
+            <strong>地圖選點</strong>
+            <span>點地圖或拖曳 marker 微調位置</span>
+          </div>
+          <div class="button-row compact">
+            <button id="customPointPickCancelBtn" type="button">取消</button>
+            <button id="customPointPickDoneBtn" type="button" class="primary">完成</button>
+          </div>
+        </div>
         <div class="map-tools">
           <select id="basemapSelect" aria-label="地圖圖層">
             <option value="osm">一般地圖</option>
@@ -97,7 +114,7 @@
               </label>
               <label>距離
                 <select id="filterRadius">
-                  <option value="">全臺</option>
+                  <option value="">不限</option>
                   <option value="1">1 km</option><option value="5">5 km</option>
                   <option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option>
                 </select>
@@ -126,7 +143,7 @@
                   <option value="source_count">多來源支持</option>
                 </select>
               </label>
-              <label>縣市／地名
+              <label>行政區／地名
                 <input id="filterLocality" type="search" placeholder="例如 南投、花蓮">
               </label>
               <label class="check-label"><input id="filterPhoto" type="checkbox"> 有照片</label>
@@ -201,6 +218,17 @@
             <div class="trip-current-summary">
               <strong id="tripSummaryName">尚未選擇行程</strong>
               <div id="tripSummaryMeta" class="meta">建立或選擇一個行程後開始規劃。</div>
+            </div>
+          </div>
+
+          <div class="custom-point-library-bar">
+            <div>
+              <strong>自訂採集點</strong>
+              <div id="customPointLibraryMeta" class="meta">0 個已儲存點位</div>
+            </div>
+            <div class="button-row compact">
+              <button id="newCustomPointBtn" type="button">＋ 新增</button>
+              <button id="manageCustomPointsBtn" type="button">點位庫</button>
             </div>
           </div>
 
@@ -422,7 +450,7 @@
           <h2>設定</h2>
 
           <div class="summary-box">
-            <strong>目前 Local Profile</strong>
+            <strong>目前 Local Workspace</strong>
             <div id="profileSummary" class="meta"></div>
           </div>
 
@@ -459,6 +487,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script type="module" src="./app.js?v=0.15.0"></script>
+  <script type="module" src="./app.js?v=0.16.0"></script>
 </body>
 </html>

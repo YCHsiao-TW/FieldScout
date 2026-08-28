@@ -1,4 +1,4 @@
-# FieldScout v0.15.0
+# FieldScout v0.16.0
 
 **Mobile-first biodiversity field scouting, route planning, navigation, and field recording for Taiwan**
 
@@ -13,7 +13,7 @@ Fixes a malformed JavaScript fragment left in `renderTaxon()` in v0.9.7. The syn
 
 ---
 
-## v0.15.0 Trip Manager
+## v0.16.0 Global
 
 - removed the Dashboard tab
 - top navigation is now Explore / Trips / Records / Settings
@@ -733,7 +733,7 @@ Candidate-site ranking should be interpreted as fieldwork decision support rathe
 
 Current release:
 
-**FieldScout v0.15.0**
+**FieldScout v0.16.0**
 
 Current architecture:
 

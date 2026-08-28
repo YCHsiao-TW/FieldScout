@@ -150,12 +150,51 @@ function merge(records){
   return [...m.values()];
 }
 
-export async function taxonomy(q){
-  const defs=[
-    {
+
+const inatPlaceCache=new Map([["TW",7887]]);
+
+async function resolveInatCountryPlaceId(countryCode,countryName){
+  if(!countryCode||countryCode==="ALL")return null;
+  if(inatPlaceCache.has(countryCode))return inatPlaceCache.get(countryCode);
+
+  const q=countryName||countryCode;
+  const url=new URL("https://api.inaturalist.org/v1/places/autocomplete");
+  url.searchParams.set("q",q);
+  url.searchParams.set("per_page","20");
+
+  const d=await fetchJson(url);
+  const results=d?.results||[];
+
+  const normalize=s=>String(s||"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  const nq=normalize(q);
+
+  const exactCountry=
+    results.find(p=>Number(p.admin_level)===0 && normalize(p.name)===nq) ||
+    results.find(p=>Number(p.admin_level)===0 && normalize(p.display_name)===nq) ||
+    results.find(p=>Number(p.admin_level)===0) ||
+    results.find(p=>normalize(p.name)===nq) ||
+    results[0];
+
+  if(!exactCountry?.id){
+    throw new Error(`iNaturalist 無法解析國家：${q}`);
+  }
+
+  inatPlaceCache.set(countryCode,exactCountry.id);
+  return exactCountry.id;
+}
+
+export async function taxonomy(q,context={}){
+  const countryCode=String(context.countryCode||"TW").toUpperCase();
+  const defs=[];
+
+  if(countryCode==="TW"){
+    defs.push({
       name:"TaiCOL",
       promise:fetchJson(`https://api.taicol.tw/v2/nameMatch?name=${encodeURIComponent(q)}`)
-    },
+    });
+  }
+
+  defs.push(
     {
       name:"GBIF taxonomy",
       promise:fetchJson(`https://api.gbif.org/v1/species/match?name=${encodeURIComponent(q)}`)
@@ -164,13 +203,16 @@ export async function taxonomy(q){
       name:"iNaturalist taxonomy",
       promise:fetchJson(`https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(q)}&locale=zh-TW&per_page=10`)
     }
-  ];
+  );
 
   const jobs=await Promise.allSettled(defs.map(x=>x.promise));
+  const resultByName=new Map(
+    defs.map((d,i)=>[d.name,jobs[i].status==="fulfilled"?jobs[i].value:null])
+  );
 
-  const tai=jobs[0].status==="fulfilled"?(jobs[0].value?.data?.[0]||null):null;
-  const gb=jobs[1].status==="fulfilled"?jobs[1].value:null;
-  const il=jobs[2].status==="fulfilled"?(jobs[2].value?.results||[]):[];
+  const tai=resultByName.get("TaiCOL")?.data?.[0]||null;
+  const gb=resultByName.get("GBIF taxonomy")||null;
+  const il=resultByName.get("iNaturalist taxonomy")?.results||[];
 
   const sci=
     tai?.matched_name ||
@@ -196,6 +238,7 @@ export async function taxonomy(q){
     gbifKey:gb?.usageKey||gb?.speciesKey||null,
     inatTaxonId:ib?.id||null,
     taiCOLTaxonID:tai?.taxon_id||null,
+    countryCode,
     sources:[
       ...(tai?["TaiCOL"]:[]),
       ...(gb?["GBIF"]:[]),
@@ -218,29 +261,39 @@ export async function taxonomy(q){
   };
 }
 
-export async function occurrences(taxon){
+export async function occurrences(taxon,context={}){
   const sci=taxon.scientificName||taxon.query;
+  const countryCode=String(context.countryCode||"TW").toUpperCase();
+  const countryName=context.countryName||countryCode;
 
   const gbif=new URL("https://api.gbif.org/v1/occurrence/search");
   if(taxon.gbifKey)gbif.searchParams.set("taxonKey",taxon.gbifKey);
   else gbif.searchParams.set("scientificName",sci);
-  gbif.searchParams.set("country","TW");
+  if(countryCode!=="ALL")gbif.searchParams.set("country",countryCode);
   gbif.searchParams.set("hasCoordinate","true");
   gbif.searchParams.set("limit","300");
 
-  const inat=new URL("https://api.inaturalist.org/v1/observations");
-  if(taxon.inatTaxonId)inat.searchParams.set("taxon_id",taxon.inatTaxonId);
-  else inat.searchParams.set("taxon_name",sci);
-  inat.searchParams.set("place_id","7887");
-  inat.searchParams.set("geo","true");
-  inat.searchParams.set("verifiable","true");
-  inat.searchParams.set("per_page","200");
-  inat.searchParams.set("order_by","observed_on");
-  inat.searchParams.set("order","desc");
+  const buildINat=async()=>{
+    const inat=new URL("https://api.inaturalist.org/v1/observations");
+    if(taxon.inatTaxonId)inat.searchParams.set("taxon_id",taxon.inatTaxonId);
+    else inat.searchParams.set("taxon_name",sci);
+
+    if(countryCode!=="ALL"){
+      const placeId=await resolveInatCountryPlaceId(countryCode,countryName);
+      inat.searchParams.set("place_id",String(placeId));
+    }
+
+    inat.searchParams.set("geo","true");
+    inat.searchParams.set("verifiable","true");
+    inat.searchParams.set("per_page","200");
+    inat.searchParams.set("order_by","observed_on");
+    inat.searchParams.set("order","desc");
+    return await fetchJson(inat);
+  };
 
   const defs=[
     {name:"GBIF",promise:fetchJson(gbif)},
-    {name:"iNaturalist",promise:fetchJson(inat)}
+    {name:"iNaturalist",promise:buildINat()}
   ];
 
   const jobs=await Promise.allSettled(defs.map(x=>x.promise));
@@ -261,6 +314,7 @@ export async function occurrences(taxon){
       GBIF:jobs[0].status==="fulfilled"?"ok":"unavailable",
       iNaturalist:jobs[1].status==="fulfilled"?"ok":"unavailable"
     },
-    warnings:defs.flatMap((x,i)=>jobs[i].status==="rejected"?[x.name]:[])
+    warnings:defs.flatMap((x,i)=>jobs[i].status==="rejected"?[x.name]:[]),
+    countryCode
   };
 }
