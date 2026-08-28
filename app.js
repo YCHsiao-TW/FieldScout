@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.14.0";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.14.0";
-import {taxonomy,occurrences} from "./api.js?v=0.14.0";
-import {rankCandidates} from "./ranking.js?v=0.14.0";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.15.0";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.15.0";
+import {taxonomy,occurrences} from "./api.js?v=0.15.0";
+import {rankCandidates} from "./ranking.js?v=0.15.0";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -157,6 +157,8 @@ function setupStatic(){
   $("#searchCsvBtn").onclick=exportSearchCsv;$("#searchGeojsonBtn").onclick=exportSearchGeoJSON;
   $("#fieldGoTripBtn").onclick=()=>switchTab("trips");
   $("#fieldEmptyTripBtn").onclick=()=>switchTab("trips");
+  $("#manageTripsBtn").onclick=showTripManager;
+  $("#fieldManageTripsBtn").onclick=showTripManager;
   $("#fieldTripSelect").onchange=()=>{
     selectTrip($("#fieldTripSelect").value);
     state.fieldModeIndex=preferredFieldModeIndex();
@@ -173,7 +175,6 @@ function setupStatic(){
   $("#newTripBtn").onclick=newTrip;
   $("#tripSelect").onchange=()=>selectTrip($("#tripSelect").value);
   $("#saveTripMetaBtn").onclick=saveTripMeta;
-  $("#deleteTripBtn").onclick=deleteTrip;
   $("#routeOptimizeBtn").onclick=optimizeRoute;
   $("#routeNorthSouthBtn").onclick=sortRouteNorthSouth;
   $("#clearTripPointsBtn").onclick=clearAllTripPoints;
@@ -743,13 +744,133 @@ async function saveTripMeta(){
   setStatus("行程資訊已儲存。");
 }
 
-async function deleteTrip(){
-  if(!state.activeTrip||!confirm("刪除目前行程？"))return;
-  await del("trips",state.activeTrip.id);
-  state.trips=state.trips.filter(t=>t.id!==state.activeTrip.id);
-  state.activeTrip=normalizeTrip(state.trips[0]||null);
+async function deleteTripById(id){
+  const trip=state.trips.find(t=>t.id===id);
+  if(!trip)return false;
+
+  const linkedRecords=state.records.filter(r=>r.tripId===id);
+  const promptText=
+    `刪除行程「${trip.name}」？\n\n`+
+    `${trip.points?.length||0} 個採集目標`+
+    (linkedRecords.length?`，${linkedRecords.length} 筆採集紀錄會保留，但解除行程連結。`:"。");
+
+  if(!confirm(promptText))return false;
+
+  for(const r of linkedRecords){
+    r.tripId=null;
+    r.tripPointId=null;
+    r.updatedAt=new Date().toISOString();
+    await put("records",r);
+  }
+
+  await del("trips",id);
+  state.trips=state.trips.filter(t=>t.id!==id);
+
+  if(state.activeTrip?.id===id){
+    state.activeTrip=normalizeTrip(state.trips[0]||null);
+    state.selectedTripPointId=null;
+    state.fieldModeIndex=0;
+  }
+
   renderTrips();
+  renderRecords();
+  renderFieldMode();
+  setStatus(`已刪除行程「${trip.name}」；採集紀錄已保留。`);
+  return true;
 }
+
+function tripManagerRow(t){
+  const linked=state.records.filter(r=>r.tripId===t.id).length;
+  const isActive=state.activeTrip?.id===t.id;
+  return `
+    <article class="trip-manager-item ${isActive?"active":""}" data-manager-trip="${esc(t.id)}">
+      <div class="trip-manager-status">
+        <span class="trip-manager-dot"></span>
+        <span>${isActive?"目前行程":esc(t.status||"planned")}</span>
+      </div>
+      <label class="trip-manager-name">行程名稱
+        <input data-trip-rename="${esc(t.id)}" value="${esc(t.name||"Unnamed trip")}" maxlength="120">
+      </label>
+      <div class="trip-manager-meta">
+        <span>${esc(t.date||"未設定日期")}</span>
+        <span>${t.points?.length||0} 個採集目標</span>
+        <span>${linked} 筆紀錄</span>
+      </div>
+      <div class="trip-manager-actions">
+        <button data-trip-use="${esc(t.id)}" ${isActive?"disabled":""}>${isActive?"使用中":"設為目前"}</button>
+        <button data-trip-save-name="${esc(t.id)}" class="primary">儲存名稱</button>
+        <button data-trip-delete="${esc(t.id)}" class="danger-soft">刪除</button>
+      </div>
+    </article>`;
+}
+
+function wireTripManager(){
+  $$("[data-trip-use]").forEach(b=>b.onclick=()=>{
+    selectTrip(b.dataset.tripUse);
+    showTripManager();
+    setStatus("已切換目前行程。");
+  });
+
+  $$("[data-trip-save-name]").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.tripSaveName;
+    const input=document.querySelector(`[data-trip-rename="${CSS.escape(id)}"]`);
+    const name=input?.value.trim();
+    if(!name){
+      setStatus("行程名稱不能留空。");
+      input?.focus();
+      return;
+    }
+
+    const trip=state.trips.find(t=>t.id===id);
+    if(!trip)return;
+    trip.name=name;
+    trip.updatedAt=new Date().toISOString();
+    await put("trips",trip);
+
+    if(state.activeTrip?.id===id){
+      state.activeTrip=normalizeTrip(trip);
+    }
+
+    renderTrips();
+    renderFieldMode();
+    showTripManager();
+    setStatus(`行程已改名為「${name}」。`);
+  });
+
+  $$("[data-trip-delete]").forEach(b=>b.onclick=async()=>{
+    const deleted=await deleteTripById(b.dataset.tripDelete);
+    if(deleted)showTripManager();
+  });
+
+  document.getElementById("tripManagerNewBtn")?.addEventListener("click",async()=>{
+    $("#modal").classList.add("hidden");
+    await newTrip();
+    showTripManager();
+  });
+}
+
+function showTripManager(){
+  const rows=state.trips.length
+    ? state.trips.map(tripManagerRow).join("")
+    : `<div class="trip-manager-empty">尚未建立行程。</div>`;
+
+  showModal(`
+    <div class="trip-manager-modal">
+      <div class="trip-manager-head">
+        <div>
+          <div class="page-kicker">TRIP LIBRARY</div>
+          <h2>編輯行程</h2>
+          <p class="meta">改名、切換或刪除行程。刪除行程不會刪除採集紀錄。</p>
+        </div>
+        <button id="tripManagerNewBtn" type="button" class="primary">＋ 新增行程</button>
+      </div>
+      <div class="trip-manager-list">${rows}</div>
+    </div>
+  `);
+
+  wireTripManager();
+}
+
 
 
 function fieldModePoints(){
@@ -1161,6 +1282,15 @@ function renderTrips(){
   $("#tripStatus").value=t?.status||"planned";
   $("#tripNotes").value=t?.notes||"";
   $("#tripMeta").textContent=t?`${pts.length} 個採集目標 · ${t.status||"planned"}`:"尚未選擇";
+
+  $("#tripSummaryName").textContent=t?.name||"尚未選擇行程";
+  if(t){
+    const linked=state.records.filter(r=>r.tripId===t.id).length;
+    $("#tripSummaryMeta").textContent=
+      `${t.date||"未設定日期"} · ${pts.length} 個採集目標 · ${linked} 筆採集紀錄 · ${{planned:"規劃中",active:"進行中",completed:"已完成"}[t.status]||t.status||"規劃中"}`;
+  }else{
+    $("#tripSummaryMeta").textContent="建立或選擇一個行程後開始規劃。";
+  }
 
   const fieldSelect=$("#fieldTripSelect");
   if(fieldSelect){
@@ -1779,7 +1909,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"0.14.0",
+      version:"0.15.0",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,

@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.14.0</title>
+  <title>FieldScout v0.15.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.14.0 Field Page</span></h1>
+        <h1>FieldScout <span class="version">v0.15.0 Trip Manager</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -180,18 +180,28 @@
 
         <!-- Trips -->
         <section id="tab-trips" class="tab-panel hidden">
-          <div class="section-head">
+          <div class="page-intro">
             <div>
-              <h2>本次採集行程</h2>
-              <p>從探索頁加入點位後，這裡會自動產生 Google Maps 路線</p>
+              <div class="page-kicker">TRIP PLANNER</div>
+              <h2>行程</h2>
+              <p>整理採集目標、排序路線與準備野外工作。</p>
             </div>
-            <button id="newTripBtn">新增行程</button>
           </div>
 
-          <div class="trip-toolbar">
-            <label>目前行程
-              <select id="tripSelect"></select>
-            </label>
+          <div class="trip-switcher-card">
+            <div class="trip-switcher-main">
+              <label>目前行程
+                <select id="tripSelect"></select>
+              </label>
+              <div class="trip-switcher-actions">
+                <button id="manageTripsBtn" type="button">編輯行程</button>
+                <button id="newTripBtn" type="button" class="primary">＋ 新增</button>
+              </div>
+            </div>
+            <div class="trip-current-summary">
+              <strong id="tripSummaryName">尚未選擇行程</strong>
+              <div id="tripSummaryMeta" class="meta">建立或選擇一個行程後開始規劃。</div>
+            </div>
           </div>
 
           <div class="route-command-card">
@@ -212,7 +222,7 @@
           </div>
 
           <details class="control-block trip-details">
-            <summary>行程資訊與匯出</summary>
+            <summary>行程資料與匯出</summary>
             <div class="two-col">
               <label>目標物種<input id="tripTargetTaxon" placeholder="可留空"></label>
               <label>日期<input id="tripDate" type="date"></label>
@@ -229,7 +239,6 @@
             </div>
             <div class="button-row">
               <button id="saveTripMetaBtn">儲存資訊</button>
-              <button id="deleteTripBtn" class="danger">刪除行程</button>
               <button id="tripCsvBtn">CSV</button>
               <button id="tripGeojsonBtn">GeoJSON</button>
               <button id="tripGpxBtn">GPX</button>
@@ -247,25 +256,29 @@
 
         <!-- Field -->
         <section id="tab-field" class="tab-panel hidden">
-          <div class="section-head field-page-title">
+          <div class="page-intro field-page-title">
             <div>
+              <div class="page-kicker">FIELD WORK</div>
               <h2>野外</h2>
-              <p>執行目前行程：導航、訪查狀態、GPS Track 與快速採集紀錄。</p>
+              <p>專注執行目前行程：導航、訪查狀態、GPS Track 與採集紀錄。</p>
             </div>
-            <button id="fieldGoTripBtn" type="button">行程管理</button>
           </div>
 
-          <div class="field-trip-select">
+          <div class="field-trip-switcher">
             <label>目前行程
               <select id="fieldTripSelect"></select>
             </label>
+            <div class="field-trip-actions">
+              <button id="fieldManageTripsBtn" type="button">編輯行程</button>
+              <button id="fieldGoTripBtn" type="button">規劃</button>
+            </div>
           </div>
 
           <div id="fieldEmptyState" class="field-empty-state hidden">
             <div class="field-empty-icon">◎</div>
             <h3>尚未有可執行的行程</h3>
             <p>先到「行程」建立或選擇 Trip，並加入至少一個採集目標。</p>
-            <button id="fieldEmptyTripBtn" type="button" class="primary">前往行程</button>
+            <button id="fieldEmptyTripBtn" type="button" class="primary">前往行程規劃</button>
           </div>
 
           <div id="fieldActiveContent">
@@ -446,6 +459,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script type="module" src="./app.js?v=0.14.0"></script>
+  <script type="module" src="./app.js?v=0.15.0"></script>
 </body>
 </html>
