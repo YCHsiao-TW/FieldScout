@@ -1,4 +1,4 @@
-# FieldScout v0.17.1
+# FieldScout v0.17.2
 
 **生物多樣性野外探點、行程規劃、導航與採集紀錄 PWA**
 
@@ -11,6 +11,15 @@ https://github.com/YCHsiao-TW/FieldScout
 [English README](README_EN.md)
 
 ---
+
+## v0.17.2 i18n Stable
+
+v0.17.1 在部分 iOS Safari 仍可能於語言切換時卡死，因此 v0.17.2 **完全移除 MutationObserver 翻譯架構**。
+
+新版改成 explicit translation：語言切換時翻譯一次；Explore / Trips / Field / Records 各自 render 後只翻譯自己的區塊；Modal 建立後只翻譯 modal；status message 寫入時直接翻譯。不再監看整個 DOM，因此不再有 observer callback feedback loop。
+
+資料格式與 IndexedDB 不變。
+
 
 ## v0.17.1 i18n Hotfix
 
@@ -1112,11 +1121,11 @@ README：
 
 部署後可以用：
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0171`
+`https://ychsiao-tw.github.io/FieldScout/?v=0172`
 
 確認載入新版。
 
-網址的 `?v=0171` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
+網址的 `?v=0172` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
 
 ## 15.5 不要隨便清 Safari 網站資料
 

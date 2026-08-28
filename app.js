@@ -1,8 +1,8 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.17.1";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.17.1";
-import {taxonomy,occurrences} from "./api.js?v=0.17.1";
-import {rankCandidates} from "./ranking.js?v=0.17.1";
-import {initI18n,setLanguage,getLanguage,translateText,t} from "./i18n.js?v=0.17.1";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.17.2";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.17.2";
+import {taxonomy,occurrences} from "./api.js?v=0.17.2";
+import {rankCandidates} from "./ranking.js?v=0.17.2";
+import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=0.17.2";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 
@@ -60,6 +60,7 @@ const state={
   customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null
 };
 const setStatus=text=>$("#status").textContent=translateText(text);
+const translateRoot=root=>{if(root)applyTranslations(root)};
 
 async function boot(){
   let initialLanguage="zh-Hant";
@@ -665,6 +666,7 @@ function renderOccurrences(){
     state.selectedOccurrenceId=null;
   }
   applyOccurrenceSelection();
+  translateRoot($("#resultList"));
 }
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
@@ -813,6 +815,9 @@ function renderCandidates(){
     const c=state.candidates[+b.dataset.cadd];
     addPointToTrip({...c,source:"ranking"});
   });
+  translateRoot($("#candidateTopList"));
+  translateRoot($("#candidateOtherList"));
+  translateRoot($("#otherCandidatesBlock"));
 }
 
 function normalizeTripPoint(p){
@@ -1119,6 +1124,7 @@ function renderFieldMode(){
   $("#fieldActiveContent").classList.toggle("hidden",!hasTarget);
 
   if(!hasTarget){
+    translateRoot($("#tab-field"));
     if(state.map)setTimeout(()=>state.map.invalidateSize(),40);
     return;
   }
@@ -1179,6 +1185,7 @@ function renderFieldMode(){
     state.map.setView([Number(point.lat),Number(point.lon)],Math.max(state.map.getZoom(),14));
     setTimeout(()=>state.map.invalidateSize(),60);
   }
+  translateRoot($("#tab-field"));
 }
 
 function moveFieldMode(delta){
@@ -1619,6 +1626,7 @@ function renderTrips(){
     await saveTrip();
     renderTrips();
   });
+  translateRoot($("#tab-trips"));
 }
 
 function renderRoutePlanner(t){
@@ -1627,6 +1635,7 @@ function renderRoutePlanner(t){
 
   if(!t||!pts.length){
     box.innerHTML=`<div class="route-empty">加入採集目標後，這裡會生成導航路線。</div>`;
+    translateRoot(box);
     return;
   }
 
@@ -1674,6 +1683,7 @@ function renderRoutePlanner(t){
       FieldScout 行程本身不限制點數。Google Maps 多點導航會依 URL 長度與跨裝置穩定性自動分段；
       野外模式則一次導航到目前目標，因此不受多 waypoint 影響。可用下方「上移／下移」調整採集順序。
     </div>`;
+  translateRoot(box);
 }
 
 async function addToTrip(r){
@@ -1809,7 +1819,10 @@ async function persistCustomPoints(){
 
 function renderCustomPointLibraryMeta(){
   const box=$("#customPointLibraryMeta");
-  if(box)box.textContent=`${customPoints().length} 個已儲存點位`;
+  if(box){
+    box.textContent=`${customPoints().length} 個已儲存點位`;
+    translateRoot(box);
+  }
 }
 
 function customPointTripOptions(selectedId=""){
@@ -2335,6 +2348,7 @@ function renderRecordTripPointOptions(selectedValue=null){
       </option>`).join("");
 
   if(pts.some(p=>String(p.id)===current))sel.value=current;
+  translateRoot(sel);
 }
 
 function useTripPointGps(){
@@ -2353,7 +2367,17 @@ function useTripPointGps(){
 }
 
 function captureRecordGps(){navigator.geolocation.getCurrentPosition(p=>{state.recordGps={lat:p.coords.latitude,lon:p.coords.longitude,accuracyM:p.coords.accuracy};renderRecordGps()},e=>setStatus(e.message),{enableHighAccuracy:true,timeout:15000})}
-function renderRecordGps(){if(!state.recordGps){$("#recordGpsText").textContent="尚未取得 GPS";$("#recordGpsAcc").textContent="";return}$("#recordGpsText").textContent=`${state.recordGps.lat.toFixed(5)}, ${state.recordGps.lon.toFixed(5)}`;$("#recordGpsAcc").textContent=`±${Math.round(state.recordGps.accuracyM)} m`}
+function renderRecordGps(){
+  if(!state.recordGps){
+    $("#recordGpsText").textContent="尚未取得 GPS";
+    $("#recordGpsAcc").textContent="";
+    translateRoot($("#recordGpsText"));
+    return;
+  }
+  $("#recordGpsText").textContent=`${state.recordGps.lat.toFixed(5)}, ${state.recordGps.lon.toFixed(5)}`;
+  $("#recordGpsAcc").textContent=`±${Math.round(state.recordGps.accuracyM)} m`;
+  translateRoot($("#recordGpsText"));
+}
 async function nextSpecimen(){const p=state.settings.specimenPrefix||"FS",n=state.settings.specimenCounter||1;$("#specimenId").value=`${p}${String(n).padStart(5,"0")}`;state.settings.specimenCounter=n+1;$("#specimenCounter").value=state.settings.specimenCounter;await put("settings",state.settings)}
 async function saveRecord(e){
   e.preventDefault();
@@ -2496,6 +2520,7 @@ function renderRecords(){
     if(state.map)state.map.setView([Number(r.lat),Number(r.lon)],16);
   });
   $$("[data-rphotos]").forEach(b=>b.onclick=()=>showPhotos(state.records[+b.dataset.rphotos]));
+  translateRoot($("#tab-records"));
 }
 
 async function showPhotos(r){const ps=(await byProfile("photos",state.profile.id)).filter(p=>r.photoIds.includes(p.id));const urls=ps.map(p=>URL.createObjectURL(p.blob));showModal(`<h2>${esc(r.specimenId)}</h2><div class="photo-grid">${urls.map(u=>`<img src="${u}">`).join("")}</div>`)}
@@ -2567,6 +2592,7 @@ function renderMonthChart(){
       ? `已套用 ${month} 月篩選。再次點同月份可取消。`
       : "已取消月份篩選。");
   });
+  translateRoot($("#monthChart"));
 }
 
 
@@ -2583,7 +2609,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"0.17.1",
+      version:"0.17.2",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,
@@ -2612,12 +2638,17 @@ async function restoreBackup(e){
 }
 function switchProfile(){location.reload()}
 async function deleteProfile(){if(!confirm(`永久刪除 ${state.profile.email} 在此瀏覽器的所有 FieldScout 資料？`))return;await deleteProfileData(state.profile.id);location.reload()}
-function showModal(html){$("#modalBody").innerHTML=html;$("#modal").classList.remove("hidden")}
+function showModal(html){
+  $("#modalBody").innerHTML=html;
+  $("#modal").classList.remove("hidden");
+  translateRoot($("#modalBody"));
+}
 
 function renderAll(){
   renderTrips();
   renderRecords();
   renderMonthChart();
   renderFieldMode();
+  translateRoot($("#app"));
 }
 boot();

@@ -1,5 +1,4 @@
 let currentLanguage="zh-Hant";
-let observer=null;
 let translating=false;
 
 const ZH_TO_EN={
@@ -471,39 +470,11 @@ export function setLanguage(lang,{persist=true}={}){
 export function initI18n(lang){
   currentLanguage=lang==="en"?"en":"zh-Hant";
   document.documentElement.lang=currentLanguage==="en"?"en":"zh-Hant";
-
   applyTranslations(document);
-
-  if(observer)observer.disconnect();
-
-  observer=new MutationObserver(mutations=>{
-    if(translating)return;
-
-    translating=true;
-    try{
-      for(const m of mutations){
-        if(m.type==="characterData"){
-          translateTextNode(m.target);
-          continue;
-        }
-
-        if(m.type==="childList" && m.addedNodes.length){
-          for(const node of m.addedNodes){
-            translateElementTree(node);
-          }
-        }
-      }
-    }finally{
-      translating=false;
-    }
-  });
-
-  observer.observe(document.body,{
-    subtree:true,
-    childList:true,
-    characterData:true
-  });
 }
+
+// v0.17.2 intentionally avoids MutationObserver.
+// Dynamic UI is translated explicitly after each rendering step.
 
 export function t(key,fallback=""){
   const zh={

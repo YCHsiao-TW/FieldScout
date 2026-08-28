@@ -1,4 +1,4 @@
-# FieldScout v0.17.1
+# FieldScout v0.17.2
 
 **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**
 
@@ -11,6 +11,11 @@ https://github.com/YCHsiao-TW/FieldScout
 [繁體中文 README](README_ZH.md)
 
 ---
+
+## v0.17.2 i18n Stable
+
+Because v0.17.1 could still freeze on some iOS Safari sessions, v0.17.2 **removes the MutationObserver translation architecture entirely**. Translation is now explicit and targeted after UI rendering. No IndexedDB migration is required.
+
 
 ## v0.17.1 i18n Hotfix
 
@@ -771,7 +776,7 @@ https://ychsiao-tw.github.io/FieldScout/
 
 After deploying v0.16.0:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0171`
+`https://ychsiao-tw.github.io/FieldScout/?v=0172`
 
 The query string is only for cache busting. It does not create a separate data workspace.
 
