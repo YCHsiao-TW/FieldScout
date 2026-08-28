@@ -1,70 +1,22 @@
-# FieldScout v0.9.6 — Field UX
+# FieldScout v0.9.7 — Entry Recovery
 
 **🚀 直接開啟 App：<https://ychsiao-tw.github.io/FieldScout/>**
 
 
-## v0.9.6 更新
+## v0.9.7 穩定來源與圖片介面
 
-### 1. 行程路線快速排序
+- 移除 TBIA occurrence 搜尋
+- 移除 TBN occurrence 搜尋
+- 移除「臺灣蛛式會社」來源篩選
+- occurrence 來源暫時固定為 **GBIF + iNaturalist**
+- TaiCOL 仍保留作為名稱解析來源
+- 清單原始圖片縮小為 56 × 56 px
+- 地圖 popup 圖片縮小
+- 詳情頁最多顯示 4 張小型縮圖，點擊才開原始圖片
+- 圖片 license 仍保留
 
-行程頁新增兩個按鍵：
-
-- **北 → 南**：依緯度由北到南排列採集目標
-- **離我近 → 遠**：取得目前 GPS 後，依與使用者的直線距離排序
-
-排序後，Google Maps 多點導航會直接套用新的 A → B → C 順序。原本的「上移／下移」仍保留，可手動微調。
-
-### 2. TBIA / TBN 可用性
-
-FieldScout 繼續使用官方資料服務：
-
-- **TBIA API V1**
-- **TBN Open API v2.6**
-- GBIF
-- iNaturalist
-
-四個來源獨立查詢，單一來源失敗不會讓整次搜尋失敗。搜尋完成後會顯示來源健康狀態，例如：
-
-`TBIA ✓ 85　TBN ✓ 120　GBIF ✓ 300　iNaturalist ✓ 200`
-
-若 TBIA 或 TBN 因瀏覽器 CORS、服務維護或網路問題在當次搜尋無法使用，該來源會自動從當次來源篩選器隱藏，而不是留下無效選項。
-
-### 3. 候選樣點 Top 5 置頂
-
-探索頁現在先顯示：
-
-**推薦候選樣點 Top 5**
-
-再顯示可展開的「其他候選樣點」，最後才是原始 occurrence 紀錄。這樣野外規劃時可以先看排名最高的五個區域。
-
-### 4. 原始資料圖片
-
-當資料來源提供公開媒體 URL 時，FieldScout 會嘗試顯示：
-
-- occurrence 清單縮圖
-- 地圖 popup 圖片
-- occurrence 詳情頁圖片 gallery
-- media license
-
-目前解析：
-
-- TBN `associatedMedia`
-- GBIF `media`
-- iNaturalist `photos`
-- TBIA 可取得的 `associatedMedia / media / multimedia`
-
-圖片授權仍以各原始資料來源標示為準。
-
-### 5. 互動式月份紀錄圖
-
-Dashboard 的 12 個月份長條圖現在：
-
-- 每個月份直接顯示紀錄筆數
-- 長條可點擊
-- 點擊某月會切回探索頁並套用該月份篩選
-- 再點同一月份可取消月份篩選
-
-## v0.9.6 進入修復
+等未來有 backend / API proxy 時，再考慮重新加入 TBIA、TBN。
+## v0.9.7 進入修復
 
 修正 iPhone Safari / PWA 可能卡在 Local Profile 畫面的問題：
 
@@ -78,11 +30,11 @@ Dashboard 的 12 個月份長條圖現在：
 - JS modules 加版本 query 避免舊 Service Worker module cache
 - Service Worker 對程式碼採 network-first
 
-## v0.9.6 行程介面
+## v0.9.7 行程介面
 
 行程頁改成以「本次採集路線」為核心。從探索頁加入 A、B、C 等採集目標後，FieldScout 會依加入／排列順序顯示 A → B → C，並自動產生 Google Maps 多點導航連結。點位過多時自動分段；每個點也保留單點導航。行程點可用「上移／下移」調整導航順序。
 
-## v0.9.6 修正
+## v0.9.7 修正
 
 修正所有「加入行程」入口：若尚未建立行程會自動建立今日行程；舊版行程資料會自動正規化；無效經緯度與重複點位會顯示明確提示。清單、marker popup、候選探點、全部加入與自訂點共用同一套安全流程。
 
@@ -90,7 +42,7 @@ FieldScout 是一套以手機為優先、Local-first 的臺灣生物多樣性野
 
 目前仍維持 **GitHub Pages / 無 Firebase backend**。
 
-## v0.9.6 新增資料來源
+## v0.9.7 新增資料來源
 
 Occurrence 搜尋現在整合：
 
@@ -204,7 +156,7 @@ FieldScout 靜態版目前每次 taxon search 讀取 TBN 前 1000 筆；如果 T
 
 ## 其他功能
 
-v0.9.6 仍包含：
+v0.9.7 仍包含：
 
 - Local email profile
 - IndexedDB

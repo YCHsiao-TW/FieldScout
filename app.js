@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.6";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.6";
-import {taxonomy,occurrences} from "./api.js?v=0.9.6";
-import {rankCandidates} from "./ranking.js?v=0.9.6";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.7";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.7";
+import {taxonomy,occurrences} from "./api.js?v=0.9.7";
+import {rankCandidates} from "./ranking.js?v=0.9.7";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -338,7 +338,7 @@ async function autocomplete(q){
 }
 async function searchTaxon(){
   const q=$("#taxonInput").value.trim();if(!q)return;
-  $("#searchBtn").disabled=true;setStatus("正在同時查詢 TBIA、TBN、GBIF、iNaturalist…");
+  $("#searchBtn").disabled=true;setStatus("正在查詢 GBIF、iNaturalist…");
   try{
     const t=await taxonomy(q);state.taxon=t.best;renderTaxon();
     const o=await occurrences(state.taxon);state.allRecords=o.records||[];
@@ -349,8 +349,7 @@ async function searchTaxon(){
     });
     applyFilters();
     updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{});
-    const tbnNote=o.tbn?.truncated?`（TBN 共 ${o.tbn.total} 筆，本次讀取前 ${o.tbn.fetched} 筆）`:"";
-    setStatus(`整合 ${state.allRecords.length} 筆；TBIA ${o.sourceCounts.TBIA}、TBN ${o.sourceCounts.TBN}${o.sourceCounts["臺灣蛛式會社"]?`〔蛛式會社 ${o.sourceCounts["臺灣蛛式會社"]}〕`:""}${tbnNote}、GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
+    setStatus(`整合 ${state.allRecords.length} 筆；GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
   }catch(e){
     const caches=await byProfile("cache",state.profile.id);
     const key=q.toLowerCase();
@@ -368,31 +367,21 @@ async function searchTaxon(){
 }
 function updateSourceHealth(status,counts){
   const box=$("#sourceHealth");
+  if(!box)return;
   box.classList.remove("hidden");
-  const labels=[["TBIA","TBIA"],["TBN","TBN"],["GBIF","GBIF"],["iNaturalist","iNaturalist"]];
+
+  const labels=[
+    ["GBIF","GBIF"],
+    ["iNaturalist","iNaturalist"]
+  ];
+
   box.innerHTML=labels.map(([key,label])=>{
-    const s=status[key]||"skipped";
+    const s=status[key]||"skip";
     const cls=s==="ok"?"ok":s==="unavailable"?"bad":"skip";
     const symbol=s==="ok"?"✓":s==="unavailable"?"×":"–";
-    return `<span class="source-health-tag ${cls}">${esc(label)} ${symbol}${s==="ok"?` ${counts[key]??0}`:""}</span>`;
+    const count=counts[key]??0;
+    return `<span class="source-health-tag ${cls}">${esc(label)} ${symbol}${s==="ok"?` ${count}`:""}</span>`;
   }).join("");
-
-  const sel=$("#filterSource");
-  for(const opt of [...sel.options]){
-    if(["TBIA","TBN"].includes(opt.value)){
-      const unavailable=status[opt.value]==="unavailable";
-      opt.hidden=unavailable;
-      opt.disabled=unavailable;
-      if(unavailable&&sel.value===opt.value)sel.value="";
-    }
-  }
-  const spiderOpt=[...sel.options].find(o=>o.value==="臺灣蛛式會社");
-  if(spiderOpt){
-    const unavailable=status.TBN==="unavailable";
-    spiderOpt.hidden=unavailable;
-    spiderOpt.disabled=unavailable;
-    if(unavailable&&sel.value==="臺灣蛛式會社")sel.value="";
-  }
 }
 
 function renderTaxon(){
@@ -401,8 +390,7 @@ function renderTaxon(){
   $("#taxonCard").innerHTML=`
     <strong>${esc(x.commonName||x.scientificName)}</strong>
     <div><i>${esc(x.scientificName)}</i></div>
-    <div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div>
-    ${x.tbnTaxonGroup?`<div class="meta">TBN 類群：${esc(x.tbnTaxonGroup)}${x.tbnSensitiveCategory?` · 敏感：${esc(x.tbnSensitiveCategory)}`:""}</div>`:""}
+    <div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div></div>`:""}
     <div class="source-tags">${(x.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>`;
 }
 function applyFilters(){
@@ -423,7 +411,7 @@ function renderOccurrences(){
     const icon=L.divIcon({className:"occ-marker-wrap",html:`<span class="occ-marker-dot"></span>`,iconSize:[18,18],iconAnchor:[9,9]});
     const popupImage=(r.imageUrls||[])[0];
     const popupHtml=`
-      ${popupImage?`<img src="${esc(popupImage)}" alt="" style="width:100%;max-height:130px;object-fit:cover;border-radius:8px;margin-bottom:7px">`:""}
+      ${popupImage?`<img src="${esc(popupImage)}" alt="" style="width:110px;height:82px;object-fit:cover;border-radius:8px;margin-bottom:7px;display:block">`:""}
       <b>${esc(r.commonName||r.scientificName)}</b><br>
       <span class="meta"><i>${esc(r.scientificName||"")}</i><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join(" + "))}</span>
       <div class="popup-actions">
@@ -488,7 +476,7 @@ function renderOccurrences(){
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
   const links=uniqueLinks.map((u,i)=>`<a class="nav-link" href="${esc(u)}" target="_blank" rel="noopener">${i===0?"原始紀錄":`來源 ${i+1}`}</a>`).join("");
-  const images=[...new Set((r.imageUrls||[]).filter(Boolean))].slice(0,8);
+  const images=[...new Set((r.imageUrls||[]).filter(Boolean))].slice(0,4);
   const gallery=images.length
     ? `<div class="source-image-gallery">${images.map((u,i)=>`
         <a href="${esc(u)}" target="_blank" rel="noopener" title="開啟原始圖片">

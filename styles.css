@@ -182,3 +182,47 @@ label input,label select,label textarea{margin-top:4px}
 @media(max-width:480px){.occ-card-layout{grid-template-columns:70px minmax(0,1fr)}.occ-thumb-wrap,.occ-card-no-image{width:70px;height:70px}.source-image-gallery{grid-template-columns:1fr}.month-chart{gap:2px}.month-count,.month-label{font-size:8px}}
 
 .month-bar{display:block}
+
+/* v0.9.7 compact source images */
+.occ-card-layout{
+  grid-template-columns:56px minmax(0,1fr)!important;
+  gap:8px!important
+}
+.occ-thumb-wrap,
+.occ-card-no-image{
+  width:56px!important;
+  height:56px!important;
+  border-radius:9px!important
+}
+.occ-thumb{
+  width:56px!important;
+  height:56px!important;
+  object-fit:cover!important
+}
+.source-media-note{
+  font-size:9px!important;
+  line-height:1.2;
+  max-width:180px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.source-image-gallery{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px!important;
+  max-width:420px
+}
+.source-image-gallery img{
+  width:100%!important;
+  height:72px!important;
+  aspect-ratio:auto!important;
+  object-fit:cover!important
+}
+@media(max-width:480px){
+  .source-image-gallery{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important
+  }
+  .source-image-gallery img{
+    height:64px!important
+  }
+}
