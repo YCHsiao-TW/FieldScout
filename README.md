@@ -1,4 +1,4 @@
-# FieldScout v0.17.0
+# FieldScout v0.17.1
 
 > **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**  
 > **以手機為優先的生物多樣性探點、行程規劃、野外導航與採集紀錄工具**
@@ -12,6 +12,11 @@ https://github.com/YCHsiao-TW/FieldScout
 [繁體中文完整說明](README_ZH.md) · [Full English documentation](README_EN.md)
 
 ---
+
+## v0.17.1 i18n Hotfix
+
+Fixes an iOS Safari language-switch freeze caused by the translation MutationObserver repeatedly observing and rewriting its own DOM changes. Language switching now avoids redundant DOM writes and uses a guarded, lower-cost update path.
+
 
 ## v0.17.0 — Bilingual UI
 
@@ -78,7 +83,7 @@ When replacing files on GitHub Pages, upload the current release files to the re
 
 After deployment, use a cache-busting URL to confirm the new version:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0170`
+`https://ychsiao-tw.github.io/FieldScout/?v=0171`
 
 Do **not** clear Safari site data just to refresh the UI unless you have exported a backup first, because IndexedDB data may be removed.
 

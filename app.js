@@ -1,20 +1,42 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.17.0";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.17.0";
-import {taxonomy,occurrences} from "./api.js?v=0.17.0";
-import {rankCandidates} from "./ranking.js?v=0.17.0";
-import {initI18n,setLanguage,getLanguage,translateText,t} from "./i18n.js?v=0.17.0";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.17.1";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.17.1";
+import {taxonomy,occurrences} from "./api.js?v=0.17.1";
+import {rankCandidates} from "./ranking.js?v=0.17.1";
+import {initI18n,setLanguage,getLanguage,translateText,t} from "./i18n.js?v=0.17.1";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 
 const COUNTRIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AS","American Samoa"],["AD","Andorra"],["AO","Angola"],["AI","Anguilla"],["AQ","Antarctica"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AW","Aruba"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BM","Bermuda"],["BT","Bhutan"],["BO","Bolivia"],["BQ","Bonaire, Sint Eustatius and Saba"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BV","Bouvet Island"],["BR","Brazil"],["IO","British Indian Ocean Territory"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["KY","Cayman Islands"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CX","Christmas Island"],["CC","Cocos (Keeling) Islands"],["CO","Colombia"],["KM","Comoros"],["CK","Cook Islands"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CW","Curaçao"],["CY","Cyprus"],["CZ","Czechia"],["CI","Côte d'Ivoire"],["CD","Democratic Republic of the Congo"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FK","Falkland Islands (Malvinas)"],["FO","Faroe Islands"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GF","French Guiana"],["PF","French Polynesia"],["TF","French Southern Territories"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GI","Gibraltar"],["GR","Greece"],["GL","Greenland"],["GD","Grenada"],["GP","Guadeloupe"],["GU","Guam"],["GT","Guatemala"],["GG","Guernsey"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HM","Heard Island and McDonald Islands"],["HN","Honduras"],["HK","Hong Kong"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IM","Isle of Man"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JE","Jersey"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MO","Macao"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MQ","Martinique"],["MR","Mauritania"],["MU","Mauritius"],["YT","Mayotte"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MS","Montserrat"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NC","New Caledonia"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NU","Niue"],["NF","Norfolk Island"],["KP","North Korea"],["MK","North Macedonia"],["MP","Northern Mariana Islands"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PN","Pitcairn"],["PL","Poland"],["PT","Portugal"],["PR","Puerto Rico"],["QA","Qatar"],["CG","Republic of the Congo"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["RE","Réunion"],["BL","Saint Barthélemy"],["SH","Saint Helena, Ascension and Tristan da Cunha"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["MF","Saint Martin (French part)"],["PM","Saint Pierre and Miquelon"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SX","Sint Maarten (Dutch part)"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["GS","South Georgia and the South Sandwich Islands"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SJ","Svalbard and Jan Mayen"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TK","Tokelau"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TM","Turkmenistan"],["TC","Turks and Caicos Islands"],["TV","Tuvalu"],["TR","Türkiye"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UM","United States Minor Outlying Islands"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["VG","Virgin Islands, British"],["VI","Virgin Islands, U.S."],["WF","Wallis and Futuna"],["EH","Western Sahara"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"],["AX","Åland Islands"]];
-function countryLabel(code,englishName=""){
-  if(code==="ALL")return getLanguage()==="en"?"Global (no country filter)":"全球（不限制國家）";
+const countryDisplayNamesCache=new Map();
+
+function getCountryDisplayNames(locale){
+  if(countryDisplayNamesCache.has(locale)){
+    return countryDisplayNamesCache.get(locale);
+  }
+
+  let dn=null;
   try{
-    const locale=getLanguage()==="en"?"en":"zh-Hant";
-    const dn=typeof Intl.DisplayNames==="function"
+    dn=typeof Intl.DisplayNames==="function"
       ? new Intl.DisplayNames([locale],{type:"region"})
       : null;
-    return dn?.of(code)||englishName||code;
+  }catch(_){
+    dn=null;
+  }
+
+  countryDisplayNamesCache.set(locale,dn);
+  return dn;
+}
+
+function countryLabel(code,englishName=""){
+  if(code==="ALL"){
+    return getLanguage()==="en"
+      ? "Global (no country filter)"
+      : "全球（不限制國家）";
+  }
+
+  try{
+    const locale=getLanguage()==="en"?"en":"zh-Hant";
+    return getCountryDisplayNames(locale)?.of(code)||englishName||code;
   }catch(_){
     return englishName||code;
   }
@@ -57,26 +79,49 @@ function setupLanguageSelector(initialLanguage="zh-Hant"){
   if(gate)gate.value=initialLanguage;
   if(settings)settings.value=initialLanguage;
 
+  let languageSwitchBusy=false;
+
   const apply=async lang=>{
-    setLanguage(lang);
-    if(gate)gate.value=lang;
-    if(settings)settings.value=lang;
+    if(languageSwitchBusy)return;
+    languageSwitchBusy=true;
 
-    // Rebuild country labels in the selected UI language.
-    const countryValue=$("#profileCountry")?.value||"TW";
-    setupCountrySelector(countryValue);
+    try{
+      const normalized=lang==="en"?"en":"zh-Hant";
 
-    if(state.settings){
-      state.settings.uiLanguage=lang;
-      await put("settings",state.settings);
-    }
+      // If already selected, avoid a full DOM pass.
+      if(getLanguage()!==normalized){
+        setLanguage(normalized);
+      }
 
-    if(state.profile){
-      state.profile.countryLabel=countryLabel(state.profile.countryCode,state.profile.countryName);
-      $("#countryBadge").title=state.profile.countryLabel;
-      $("#profileSummary").innerHTML=
-        `${esc(state.profile.email)}<br>${esc(state.profile.countryLabel)} (${esc(state.profile.countryCode)})<br><span class="meta">${translateText("本機 workspace ID：")}${esc(state.profile.id)}</span>`;
-      renderAll();
+      if(gate)gate.value=normalized;
+      if(settings)settings.value=normalized;
+
+      // Rebuild the country selector only on the gate; it is the one dynamic
+      // list whose labels depend directly on the UI language.
+      const countryValue=$("#profileCountry")?.value||state.profile?.countryCode||"TW";
+      setupCountrySelector(countryValue);
+
+      if(state.settings){
+        state.settings.uiLanguage=normalized;
+        await put("settings",state.settings);
+      }
+
+      if(state.profile){
+        state.profile.countryLabel=countryLabel(
+          state.profile.countryCode,
+          state.profile.countryName
+        );
+
+        $("#countryBadge").title=state.profile.countryLabel;
+        $("#profileSummary").innerHTML=
+          `${esc(state.profile.email)}<br>${esc(state.profile.countryLabel)} (${esc(state.profile.countryCode)})<br>`+
+          `<span class="meta">${translateText("本機 workspace ID：")}${esc(state.profile.id)}</span>`;
+
+        // Re-render dynamic sections once after the language has settled.
+        renderAll();
+      }
+    }finally{
+      languageSwitchBusy=false;
     }
   };
 
@@ -2538,7 +2583,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"0.17.0",
+      version:"0.17.1",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,

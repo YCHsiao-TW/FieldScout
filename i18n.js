@@ -378,22 +378,34 @@ function shouldIgnore(node){
 
 function translateTextNode(node){
   if(shouldIgnore(node))return;
+
+  // Keep the first source-language text as the canonical value for this node.
+  // Critical: do not write nodeValue unless the target text is actually
+  // different. Otherwise MutationObserver observes our own write and can
+  // enter a self-triggering loop, which was especially severe on iOS Safari.
   if(!originalText.has(node))originalText.set(node,node.nodeValue);
+
   const original=originalText.get(node);
-  if(currentLanguage==="zh-Hant"){
-    if(node.nodeValue!==original)node.nodeValue=original;
-    return;
+  let target=original;
+
+  if(currentLanguage==="en"){
+    const trimmed=original.trim();
+    if(trimmed){
+      const translated=dynamicEnglish(trimmed);
+      if(translated!==trimmed){
+        target=preserveWhitespace(original,translated);
+      }
+    }
   }
-  const trimmed=original.trim();
-  if(!trimmed)return;
-  const translated=dynamicEnglish(trimmed);
-  if(translated!==trimmed){
-    node.nodeValue=preserveWhitespace(original,translated);
+
+  if(node.nodeValue!==target){
+    node.nodeValue=target;
   }
 }
 
 function translateAttributes(el){
   if(shouldIgnore(el))return;
+
   if(!originalAttrs.has(el)){
     originalAttrs.set(el,{
       placeholder:el.getAttribute?.("placeholder"),
@@ -401,15 +413,23 @@ function translateAttributes(el){
       ariaLabel:el.getAttribute?.("aria-label")
     });
   }
+
   const orig=originalAttrs.get(el)||{};
   const mapping=[
     ["placeholder",orig.placeholder,PLACEHOLDER_MAP],
     ["title",orig.title,ZH_TO_EN],
     ["aria-label",orig.ariaLabel,ARIA_MAP]
   ];
+
   for(const [attr,value,map] of mapping){
     if(value==null)continue;
-    el.setAttribute(attr,currentLanguage==="en"?(map[value]||dynamicEnglish(value)):value);
+    const target=currentLanguage==="en"?(map[value]||dynamicEnglish(value)):value;
+
+    // Same principle as text nodes: avoid redundant attribute writes because
+    // they create needless DOM work during a full language switch.
+    if(el.getAttribute(attr)!==target){
+      el.setAttribute(attr,target);
+    }
   }
 }
 
@@ -455,22 +475,34 @@ export function initI18n(lang){
   applyTranslations(document);
 
   if(observer)observer.disconnect();
+
   observer=new MutationObserver(mutations=>{
     if(translating)return;
+
     translating=true;
     try{
       for(const m of mutations){
         if(m.type==="characterData"){
           translateTextNode(m.target);
-        }else{
-          for(const node of m.addedNodes)translateElementTree(node);
+          continue;
+        }
+
+        if(m.type==="childList" && m.addedNodes.length){
+          for(const node of m.addedNodes){
+            translateElementTree(node);
+          }
         }
       }
     }finally{
       translating=false;
     }
   });
-  observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+
+  observer.observe(document.body,{
+    subtree:true,
+    childList:true,
+    characterData:true
+  });
 }
 
 export function t(key,fallback=""){

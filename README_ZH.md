@@ -1,4 +1,4 @@
-# FieldScout v0.17.0
+# FieldScout v0.17.1
 
 **生物多樣性野外探點、行程規劃、導航與採集紀錄 PWA**
 
@@ -11,6 +11,23 @@ https://github.com/YCHsiao-TW/FieldScout
 [English README](README_EN.md)
 
 ---
+
+## v0.17.1 i18n Hotfix
+
+修正 v0.17.0 在 iOS Safari 切換介面語言時可能整頁卡死的問題。
+
+原因是翻譯器的 `MutationObserver` 會觀察到自己剛寫入的文字；舊版即使目標文字沒有改變，仍再次寫入 `nodeValue`，因此可能形成 observer 自我觸發迴圈。
+
+v0.17.1：
+
+- 只有「目前文字 ≠ 目標文字」時才修改 DOM
+- attribute 翻譯同樣避免重複寫入
+- 語言切換加入 busy guard
+- `Intl.DisplayNames` 改為快取，不再排序國家清單時重複建立
+- 動態區塊只在語言切換完成後重新 render 一次
+
+資料格式與 v0.17.0 相容，不需要移轉 IndexedDB。
+
 
 # v0.17.0 雙語介面
 
@@ -1095,11 +1112,11 @@ README：
 
 部署後可以用：
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0170`
+`https://ychsiao-tw.github.io/FieldScout/?v=0171`
 
 確認載入新版。
 
-網址的 `?v=0170` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
+網址的 `?v=0171` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
 
 ## 15.5 不要隨便清 Safari 網站資料
 

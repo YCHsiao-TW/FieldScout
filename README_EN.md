@@ -1,4 +1,4 @@
-# FieldScout v0.17.0
+# FieldScout v0.17.1
 
 **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**
 
@@ -11,6 +11,23 @@ https://github.com/YCHsiao-TW/FieldScout
 [繁體中文 README](README_ZH.md)
 
 ---
+
+## v0.17.1 i18n Hotfix
+
+Fixes an iOS Safari freeze that could occur when switching interface language in v0.17.0.
+
+The translation `MutationObserver` could observe its own text writes. The old implementation rewrote `nodeValue` even when the translated target was already present, allowing a self-triggering observer loop.
+
+v0.17.1:
+
+- writes text only when current text differs from the target
+- avoids redundant translated-attribute writes
+- adds a language-switch busy guard
+- caches `Intl.DisplayNames`
+- renders dynamic sections only once after a language switch
+
+No IndexedDB migration is required.
+
 
 # v0.17.0 Bilingual UI
 
@@ -754,7 +771,7 @@ https://ychsiao-tw.github.io/FieldScout/
 
 After deploying v0.16.0:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0170`
+`https://ychsiao-tw.github.io/FieldScout/?v=0171`
 
 The query string is only for cache busting. It does not create a separate data workspace.
 
