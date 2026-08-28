@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.7";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.7";
-import {taxonomy,occurrences} from "./api.js?v=0.9.7";
-import {rankCandidates} from "./ranking.js?v=0.9.7";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.8";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.8";
+import {taxonomy,occurrences} from "./api.js?v=0.9.8";
+import {rankCandidates} from "./ranking.js?v=0.9.8";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -386,13 +386,18 @@ function updateSourceHealth(status,counts){
 
 function renderTaxon(){
   const x=state.taxon;
+  if(!x)return;
+
   $("#taxonCard").classList.remove("hidden");
   $("#taxonCard").innerHTML=`
-    <strong>${esc(x.commonName||x.scientificName)}</strong>
-    <div><i>${esc(x.scientificName)}</i></div>
-    <div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div></div>`:""}
-    <div class="source-tags">${(x.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>`;
+    <strong>${esc(x.commonName||x.scientificName||"")}</strong>
+    <div><i>${esc(x.scientificName||"")}</i></div>
+    <div class="meta">${esc([x.order,x.family,x.rank].filter(Boolean).join(" → "))}</div>
+    <div class="source-tags">
+      ${(x.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}
+    </div>`;
 }
+
 function applyFilters(){
   let l=[...state.allRecords];const st=$("#filterStart").value,en=$("#filterEnd").value,mo=+$("#filterMonth").value,src=$("#filterSource").value,bas=$("#filterBasis").value,unc=+$("#filterUncertainty").value,photo=$("#filterPhoto").checked,rad=+$("#filterRadius").value;
   l=l.filter(r=>{const d=String(r.eventDate||"").slice(0,10);if(st&&d&&d<st)return false;if(en&&d&&d>en)return false;if(mo&&+d.slice(5,7)!==mo)return false;if(src&&!(r.sources||[]).includes(src))return false;if(bas&&!String(r.basisOfRecord||"").toUpperCase().includes(bas))return false;if(unc&&Number(r.uncertaintyM??Infinity)>unc)return false;if(photo&&!r.hasPhoto)return false;if(rad&&state.currentPos&&haversineKm(state.currentPos,{lat:r.lat,lon:r.lon})>rad)return false;return true});

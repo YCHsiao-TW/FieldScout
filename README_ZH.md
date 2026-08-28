@@ -1,9 +1,13 @@
-# FieldScout v0.9.7
+# FieldScout v0.9.8
 
 **臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**
 
 **🚀 直接開啟 App：**  
 https://ychsiao-tw.github.io/FieldScout/
+
+## v0.9.8 緊急修復
+
+修正 v0.9.7 `renderTaxon()` 中殘留的錯誤 JavaScript 片段。該錯誤會使 `app.js` 在 module parse 階段直接失敗，造成 FieldScout 無法啟動。本版同時更新 Service Worker 與 module cache version。
 
 [English README](README_EN.md)
 
@@ -767,7 +771,7 @@ FieldScout 是：
 
 Current version:
 
-**FieldScout v0.9.7**
+**FieldScout v0.9.8**
 
 目前階段：
 

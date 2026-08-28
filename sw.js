@@ -1,8 +1,8 @@
-const CACHE="fieldscout-v0.9.7-shell";
+const CACHE="fieldscout-v0.9.8-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=0.9.7","./db.js?v=0.9.7","./utils.js?v=0.9.7",
-  "./api.js?v=0.9.7","./ranking.js?v=0.9.7",
+  "./app.js?v=0.9.8","./db.js?v=0.9.8","./utils.js?v=0.9.8",
+  "./api.js?v=0.9.8","./ranking.js?v=0.9.8",
   "./manifest.webmanifest"
 ];
 

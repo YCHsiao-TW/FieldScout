@@ -1,4 +1,4 @@
-# FieldScout v0.9.7
+# FieldScout v0.9.8
 
 > **A mobile-first biodiversity field scouting and field-recording PWA for Taiwan**  
 > **以手機為優先的臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**

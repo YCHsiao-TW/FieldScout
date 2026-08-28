@@ -1,9 +1,13 @@
-# FieldScout v0.9.7
+# FieldScout v0.9.8
 
 **Mobile-first biodiversity field scouting, route planning, navigation, and field recording for Taiwan**
 
 **🚀 Open the App:**  
 https://ychsiao-tw.github.io/FieldScout/
+
+## v0.9.8 runtime hotfix
+
+Fixes a malformed JavaScript fragment left in `renderTaxon()` in v0.9.7. The syntax error prevented the ES module from parsing and stopped FieldScout from booting. Service-worker and module cache versions are also bumped.
 
 [繁體中文 README](README_ZH.md)
 
@@ -718,7 +722,7 @@ Candidate-site ranking should be interpreted as fieldwork decision support rathe
 
 Current release:
 
-**FieldScout v0.9.7**
+**FieldScout v0.9.8**
 
 Current architecture:
 
