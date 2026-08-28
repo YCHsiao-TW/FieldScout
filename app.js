@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.5";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.5";
-import {taxonomy,occurrences} from "./api.js?v=0.9.5";
-import {rankCandidates} from "./ranking.js?v=0.9.5";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.6";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.6";
+import {taxonomy,occurrences} from "./api.js?v=0.9.6";
+import {rankCandidates} from "./ranking.js?v=0.9.6";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -141,7 +141,12 @@ function setupStatic(){
   $("#applyFiltersBtn").onclick=applyFilters;$("#resetFiltersBtn").onclick=resetFilters;$("#sortMode").onchange=applyFilters;
   $("#addAllBtn").onclick=addAllVisible;$("#rerankBtn").onclick=rerank;
   $("#searchCsvBtn").onclick=exportSearchCsv;$("#searchGeojsonBtn").onclick=exportSearchGeoJSON;
-  $("#newTripBtn").onclick=newTrip;$("#tripSelect").onchange=()=>selectTrip($("#tripSelect").value);$("#saveTripMetaBtn").onclick=saveTripMeta;$("#deleteTripBtn").onclick=deleteTrip;
+  $("#newTripBtn").onclick=newTrip;
+  $("#tripSelect").onchange=()=>selectTrip($("#tripSelect").value);
+  $("#saveTripMetaBtn").onclick=saveTripMeta;
+  $("#deleteTripBtn").onclick=deleteTrip;
+  $("#routeNorthSouthBtn").onclick=sortRouteNorthSouth;
+  $("#routeDistanceBtn").onclick=sortRouteByDistance;
   $("#tripCsvBtn").onclick=exportTripCsv;$("#tripGeojsonBtn").onclick=exportTripGeoJSON;$("#tripGpxBtn").onclick=exportTripGpx;$("#gpxImport").onchange=importGpx;
   $("#trackStartBtn").onclick=startTrack;$("#trackStopBtn").onclick=stopTrack;$("#trackExportBtn").onclick=()=>downloadText("fieldscout_track.gpx","application/gpx+xml",gpxTrack(state.track));
   $("#batchSiteBtn").onclick=toggleBatchSite;$("#recordGpsBtn").onclick=captureRecordGps;$("#useBatchGpsBtn").onclick=useBatchGps;$("#nextSpecimenBtn").onclick=nextSpecimen;
@@ -343,8 +348,9 @@ async function searchTaxon(){
       records:state.allRecords,savedAt:new Date().toISOString()
     });
     applyFilters();
+    updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{});
     const tbnNote=o.tbn?.truncated?`（TBN 共 ${o.tbn.total} 筆，本次讀取前 ${o.tbn.fetched} 筆）`:"";
-    setStatus(`整合 ${state.allRecords.length} 筆；TBIA ${o.sourceCounts.TBIA}、TBN ${o.sourceCounts.TBN}${o.sourceCounts["臺灣蛛式會社"]?`〔蛛式會社 ${o.sourceCounts["臺灣蛛式會社"]}〕`:""}${tbnNote}、GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；不可用：${o.warnings.join(", ")}`:""}`);
+    setStatus(`整合 ${state.allRecords.length} 筆；TBIA ${o.sourceCounts.TBIA}、TBN ${o.sourceCounts.TBN}${o.sourceCounts["臺灣蛛式會社"]?`〔蛛式會社 ${o.sourceCounts["臺灣蛛式會社"]}〕`:""}${tbnNote}、GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
   }catch(e){
     const caches=await byProfile("cache",state.profile.id);
     const key=q.toLowerCase();
@@ -360,6 +366,35 @@ async function searchTaxon(){
     }
   }finally{$("#searchBtn").disabled=false}
 }
+function updateSourceHealth(status,counts){
+  const box=$("#sourceHealth");
+  box.classList.remove("hidden");
+  const labels=[["TBIA","TBIA"],["TBN","TBN"],["GBIF","GBIF"],["iNaturalist","iNaturalist"]];
+  box.innerHTML=labels.map(([key,label])=>{
+    const s=status[key]||"skipped";
+    const cls=s==="ok"?"ok":s==="unavailable"?"bad":"skip";
+    const symbol=s==="ok"?"✓":s==="unavailable"?"×":"–";
+    return `<span class="source-health-tag ${cls}">${esc(label)} ${symbol}${s==="ok"?` ${counts[key]??0}`:""}</span>`;
+  }).join("");
+
+  const sel=$("#filterSource");
+  for(const opt of [...sel.options]){
+    if(["TBIA","TBN"].includes(opt.value)){
+      const unavailable=status[opt.value]==="unavailable";
+      opt.hidden=unavailable;
+      opt.disabled=unavailable;
+      if(unavailable&&sel.value===opt.value)sel.value="";
+    }
+  }
+  const spiderOpt=[...sel.options].find(o=>o.value==="臺灣蛛式會社");
+  if(spiderOpt){
+    const unavailable=status.TBN==="unavailable";
+    spiderOpt.hidden=unavailable;
+    spiderOpt.disabled=unavailable;
+    if(unavailable&&sel.value==="臺灣蛛式會社")sel.value="";
+  }
+}
+
 function renderTaxon(){
   const x=state.taxon;
   $("#taxonCard").classList.remove("hidden");
@@ -379,10 +414,16 @@ function applyFilters(){
 }
 function resetFilters(){["filterStart","filterEnd","filterMonth","filterRadius","filterSource","filterBasis","filterUncertainty"].forEach(id=>$("#"+id).value="");$("#filterPhoto").checked=false;applyFilters()}
 function renderOccurrences(){
-  state.cluster.clearLayers();state.markerMap.clear();const bounds=[];
+  if(state.cluster)state.cluster.clearLayers();
+  state.markerMap.clear();
+  const bounds=[];
+
   for(const r of state.filtered){
+    if(!window.L||!state.cluster)break;
     const icon=L.divIcon({className:"occ-marker-wrap",html:`<span class="occ-marker-dot"></span>`,iconSize:[18,18],iconAnchor:[9,9]});
+    const popupImage=(r.imageUrls||[])[0];
     const popupHtml=`
+      ${popupImage?`<img src="${esc(popupImage)}" alt="" style="width:100%;max-height:130px;object-fit:cover;border-radius:8px;margin-bottom:7px">`:""}
       <b>${esc(r.commonName||r.scientificName)}</b><br>
       <span class="meta"><i>${esc(r.scientificName||"")}</i><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join(" + "))}</span>
       <div class="popup-actions">
@@ -395,18 +436,69 @@ function renderOccurrences(){
       const btn=e.popup.getElement()?.querySelector("[data-popup-add]");
       if(btn)btn.onclick=()=>addToTrip(r);
     });
-    m.addTo(state.cluster);state.markerMap.set(r.id,m);bounds.push([r.lat,r.lon]);
+    m.addTo(state.cluster);
+    state.markerMap.set(r.id,m);
+    bounds.push([r.lat,r.lon]);
   }
-  if(bounds.length)state.map.fitBounds(bounds,{padding:[20,20],maxZoom:12});
-  $("#resultList").innerHTML=state.filtered.length?state.filtered.slice(0,200).map((r,i)=>`<article class="card" data-card="${esc(r.id)}"><div class="card-top"><div><h3>${esc(r.commonName||r.scientificName)}</h3><div class="meta"><i>${esc(r.scientificName)}</i><br>${esc(r.locality||"")} · ${esc(r.eventDate||"")} ${r.uncertaintyM!=null?`· ±${Math.round(r.uncertaintyM)} m`:""}</div><div class="source-tags">${(r.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div></div></div><div class="actions"><button data-focus="${i}">地圖</button><button data-detail="${i}">詳情</button><a class="nav-link" target="_blank" href="${googleMapsUrl(r.lat,r.lon)}">Google Maps</a><button data-add="${i}">加入行程</button></div></article>`).join(""):`<div class="empty">無符合紀錄。</div>`;
-  $$("[data-focus]").forEach(b=>b.onclick=()=>{const r=state.filtered[+b.dataset.focus];state.map.setView([r.lat,r.lon],16);state.markerMap.get(r.id)?.openPopup();highlightCard(r.id,false)});
+
+  if(bounds.length&&state.map)state.map.fitBounds(bounds,{padding:[20,20],maxZoom:12});
+
+  $("#resultList").innerHTML=state.filtered.length
+    ? state.filtered.slice(0,200).map((r,i)=>{
+        const img=(r.imageUrls||[])[0];
+        return `<article class="card" data-card="${esc(r.id)}">
+          <div class="occ-card-layout">
+            ${img
+              ? `<div class="occ-thumb-wrap"><img class="occ-thumb" data-occ-thumb src="${esc(img)}" alt="${esc(r.commonName||r.scientificName||"occurrence")}"></div>`
+              : `<div class="occ-card-no-image">No image</div>`}
+            <div>
+              <div class="card-top">
+                <div>
+                  <h3>${esc(r.commonName||r.scientificName)}</h3>
+                  <div class="meta"><i>${esc(r.scientificName)}</i><br>${esc(r.locality||"")} · ${esc(r.eventDate||"")} ${r.uncertaintyM!=null?`· ±${Math.round(r.uncertaintyM)} m`:""}</div>
+                  <div class="source-tags">${(r.sources||[]).map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>
+                  ${img?`<div class="source-media-note">${esc(r.mediaLicense||"原始資料圖片")}</div>`:""}
+                </div>
+              </div>
+              <div class="actions">
+                <button data-focus="${i}">地圖</button>
+                <button data-detail="${i}">詳情${(r.imageUrls||[]).length?` / 圖片 ${(r.imageUrls||[]).length}`:""}</button>
+                <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(r.lat,r.lon)}">Google Maps</a>
+                <button data-add="${i}">加入行程</button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      }).join("")
+    : `<div class="empty">無符合紀錄。</div>`;
+
+  $$("[data-focus]").forEach(b=>b.onclick=()=>{
+    const r=state.filtered[+b.dataset.focus];
+    if(state.map)state.map.setView([r.lat,r.lon],16);
+    state.markerMap.get(r.id)?.openPopup();
+    highlightCard(r.id,false);
+  });
   $$("[data-detail]").forEach(b=>b.onclick=()=>showOccurrenceDetail(state.filtered[+b.dataset.detail]));
   $$("[data-add]").forEach(b=>b.onclick=()=>addToTrip(state.filtered[+b.dataset.add]));
+  $$("[data-occ-thumb]").forEach(img=>img.addEventListener("error",()=>{
+    const wrap=img.closest(".occ-thumb-wrap");
+    if(wrap)wrap.innerHTML='<div class="occ-card-no-image">Image unavailable</div>';
+  },{once:true}));
 }
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
   const links=uniqueLinks.map((u,i)=>`<a class="nav-link" href="${esc(u)}" target="_blank" rel="noopener">${i===0?"原始紀錄":`來源 ${i+1}`}</a>`).join("");
+  const images=[...new Set((r.imageUrls||[]).filter(Boolean))].slice(0,8);
+  const gallery=images.length
+    ? `<div class="source-image-gallery">${images.map((u,i)=>`
+        <a href="${esc(u)}" target="_blank" rel="noopener" title="開啟原始圖片">
+          <img src="${esc(u)}" alt="${esc(r.commonName||r.scientificName||"occurrence")} ${i+1}">
+        </a>`).join("")}</div>
+       <div class="meta">圖片授權：${esc(r.mediaLicense||"請以原始資料來源標示為準")}</div>`
+    : `<div class="meta">此筆資料沒有可直接顯示的原始圖片。</div>`;
+
   showModal(`<h2>${esc(r.commonName||r.scientificName||"Occurrence")}</h2>
+    ${gallery}
     <div class="summary-box">
       <div><i>${esc(r.scientificName||"")}</i></div>
       <div class="meta">
@@ -415,12 +507,11 @@ function showOccurrenceDetail(r){
         座標：${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}<br>
         座標誤差：${r.uncertaintyM!=null?`±${Math.round(r.uncertaintyM)} m`:"未提供"}<br>
         Basis：${esc(r.basisOfRecord||"未提供")}<br>
-        照片：${r.hasPhoto?"有":"未標示"}<br>
         來源：${esc((r.sources||[]).join(" + "))}
         ${r.datasetName?`<br>資料集：${esc(r.datasetName)}`:""}
         ${r.datasetUUID?`<br>Dataset UUID：${esc(r.datasetUUID)}`:""}
         ${r.datasetAuthor?`<br>資料集作者：${esc(r.datasetAuthor)}`:""}
-        ${r.license?`<br>授權：${esc(r.license)}`:""}
+        ${r.license?`<br>資料授權：${esc(r.license)}`:""}
         ${r.recordedBy?`<br>記錄者：${esc(r.recordedBy)}`:""}
         ${r.identificationVerificationStatus?`<br>鑑定狀態：${esc(r.identificationVerificationStatus)}`:""}
         ${r.minimumElevationM!=null?`<br>海拔：${Math.round(r.minimumElevationM)} m`:""}
@@ -453,9 +544,47 @@ function renderSeason(){
   $("#seasonSummary").classList.remove("hidden");$("#seasonSummary").innerHTML=`<strong>季節性摘要</strong><div class="meta">主要月份：${top.filter(x=>x[0]>0).map(x=>`${x[1]}月 (${x[0]})`).join("、")||"資料不足"}；目前月份 ${new Date().getMonth()+1} 月共有 ${counts[new Date().getMonth()]} 筆。</div>`
 }
 function rerank(){state.candidates=rankCandidates(state.filtered,state.currentPos,$("#filterMonth").value);renderCandidates()}
+function candidateCard(c,i,featured=false){
+  return `<article class="card">
+    <div class="card-top">
+      <div>
+        <h3>${featured?`<span class="candidate-rank-badge">${c.rank}</span>`:`#${c.rank} `}${esc(c.name)}</h3>
+        <div class="meta">${c.count} 筆 · 最新 ${c.newest||"?"} · 月份匹配 ${c.monthHits}/${c.count}${c.dist!=null?` · ${c.dist.toFixed(1)} km`:""} · median ±${Math.round(c.medianUnc)} m</div>
+        <div class="source-tags">${c.sources.map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div>
+      </div>
+      <div class="score">${c.score}</div>
+    </div>
+    <div class="actions">
+      <button data-cfocus="${i}">地圖</button>
+      <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(c.lat,c.lon)}">Google Maps</a>
+      <button data-cadd="${i}">加入行程</button>
+    </div>
+  </article>`;
+}
+
 function renderCandidates(){
-  $("#candidateList").innerHTML=state.candidates.length?state.candidates.map((c,i)=>`<article class="card"><div class="card-top"><div><h3>#${c.rank} ${esc(c.name)}</h3><div class="meta">${c.count} 筆 · 最新 ${c.newest||"?"} · 月份匹配 ${c.monthHits}/${c.count}${c.dist!=null?` · ${c.dist.toFixed(1)} km`:""} · median ±${Math.round(c.medianUnc)} m</div><div class="source-tags">${c.sources.map(s=>`<span class="source-tag">${esc(s)}</span>`).join("")}</div></div><div class="score">${c.score}</div></div><div class="actions"><button data-cfocus="${i}">地圖</button><a class="nav-link" target="_blank" href="${googleMapsUrl(c.lat,c.lon)}">Google Maps</a><button data-cadd="${i}">加入行程</button></div></article>`).join(""):`<div class="empty">尚無候選探點。</div>`;
-  $$("[data-cfocus]").forEach(b=>b.onclick=()=>{const c=state.candidates[+b.dataset.cfocus];state.map.setView([c.lat,c.lon],15)});$$("[data-cadd]").forEach(b=>b.onclick=()=>addPointToTrip({...state.candidates[+b.dataset.cadd],source:"ranking"}))
+  const top=state.candidates.slice(0,5);
+  const rest=state.candidates.slice(5);
+
+  $("#candidateTopList").innerHTML=top.length
+    ? top.map((c,i)=>candidateCard(c,i,true)).join("")
+    : `<div class="empty">尚無候選樣點。</div>`;
+
+  $("#candidateOtherList").innerHTML=rest.length
+    ? rest.map((c,j)=>candidateCard(c,j+5,false)).join("")
+    : `<div class="empty">沒有其他候選樣點。</div>`;
+
+  $("#otherCandidateCount").textContent=`(${rest.length})`;
+  $("#otherCandidatesBlock").classList.toggle("hidden",rest.length===0);
+
+  $$("[data-cfocus]").forEach(b=>b.onclick=()=>{
+    const c=state.candidates[+b.dataset.cfocus];
+    if(state.map)state.map.setView([c.lat,c.lon],15);
+  });
+  $$("[data-cadd]").forEach(b=>b.onclick=()=>{
+    const c=state.candidates[+b.dataset.cadd];
+    addPointToTrip({...c,source:"ranking"});
+  });
 }
 
 function normalizeTripPoint(p){
@@ -579,6 +708,55 @@ async function deleteTrip(){
   state.trips=state.trips.filter(t=>t.id!==state.activeTrip.id);
   state.activeTrip=normalizeTrip(state.trips[0]||null);
   renderTrips();
+}
+
+
+async function sortRouteNorthSouth(){
+  try{
+    const t=await ensureTrip();
+    t.points=(t.points||[]).slice().sort((a,b)=>Number(b.lat)-Number(a.lat));
+    await saveTrip();
+    renderTrips();
+    setStatus("行程已依北 → 南重新排序。");
+  }catch(e){
+    setStatus(`路線排序失敗：${e.message}`);
+  }
+}
+
+async function sortRouteByDistance(){
+  try{
+    const t=await ensureTrip();
+
+    const doSort=async pos=>{
+      state.currentPos=pos;
+      t.points=(t.points||[]).slice().sort((a,b)=>
+        haversineKm(pos,{lat:Number(a.lat),lon:Number(a.lon)})-
+        haversineKm(pos,{lat:Number(b.lat),lon:Number(b.lon)})
+      );
+      await saveTrip();
+      renderTrips();
+      setStatus("行程已依目前位置由近 → 遠重新排序。");
+    };
+
+    if(state.currentPos){
+      await doSort(state.currentPos);
+      return;
+    }
+
+    if(!navigator.geolocation)throw new Error("此瀏覽器不支援 GPS");
+
+    navigator.geolocation.getCurrentPosition(
+      p=>doSort({
+        lat:p.coords.latitude,
+        lon:p.coords.longitude,
+        accuracy:p.coords.accuracy
+      }).catch(e=>setStatus(`路線排序失敗：${e.message}`)),
+      e=>setStatus(`需要目前位置才能依距離排序：${e.message}`),
+      {enableHighAccuracy:true,timeout:15000}
+    );
+  }catch(e){
+    setStatus(`路線排序失敗：${e.message}`);
+  }
 }
 
 function renderTrips(){
@@ -893,14 +1071,14 @@ function exportSearchCsv(){
   const rows=[[
     "id","scientificName","commonName","locality","eventDate","latitude","longitude",
     "sources","basisOfRecord","uncertaintyM","hasPhoto",
-    "datasetUUID","datasetName","datasetURL","license",
-    "sensitiveCategory","dataGeneralizations","sourceUrls"
+    "datasetUUID","datasetName","datasetURL","license","mediaLicense",
+    "sensitiveCategory","dataGeneralizations","imageUrls","sourceUrls"
   ]];
   state.filtered.forEach(r=>rows.push([
     r.id,r.scientificName,r.commonName,r.locality,r.eventDate,r.lat,r.lon,
     (r.sources||[]).join("|"),r.basisOfRecord,r.uncertaintyM??"",r.hasPhoto,
-    r.datasetUUID||"",r.datasetName||"",r.datasetURL||"",r.license||"",
-    r.sensitiveCategory||"",!!r.dataGeneralizations,(r.sourceUrls||[]).join("|")
+    r.datasetUUID||"",r.datasetName||"",r.datasetURL||"",r.license||"",r.mediaLicense||"",
+    r.sensitiveCategory||"",!!r.dataGeneralizations,(r.imageUrls||[]).join("|"),(r.sourceUrls||[]).join("|")
   ]));
   downloadText("fieldscout_occurrences.csv","text/csv;charset=utf-8",toCSV(rows));
 }
@@ -911,9 +1089,10 @@ function exportSearchGeoJSON(){
       eventDate:r.eventDate,sources:r.sources,basisOfRecord:r.basisOfRecord,
       uncertaintyM:r.uncertaintyM,hasPhoto:r.hasPhoto,
       datasetUUID:r.datasetUUID||"",datasetName:r.datasetName||"",
-      datasetURL:r.datasetURL||"",license:r.license||"",
+      datasetURL:r.datasetURL||"",license:r.license||"",mediaLicense:r.mediaLicense||"",
       sensitiveCategory:r.sensitiveCategory||"",
       dataGeneralizations:!!r.dataGeneralizations,
+      imageUrls:r.imageUrls||[],
       sourceUrls:r.sourceUrls||[]
     })),null,2
   ));
@@ -924,7 +1103,27 @@ function renderDashboard(){
   const visited=state.trips.flatMap(t=>t.points||[]).filter(p=>["arrived","surveyed","revisit"].includes(p.visitStatus)).length,totalPts=state.trips.reduce((s,t)=>s+(t.points?.length||0),0);
   const taxa=new Set(state.records.map(r=>r.taxon).filter(Boolean));const acc=state.records.map(r=>Number(r.accuracyM)).filter(Number.isFinite).sort((a,b)=>a-b),med=acc.length?acc[Math.floor(acc.length/2)]:null;
   $("#dashboardCards").innerHTML=`<div class="dashboard-card"><span class="meta">Trips</span><strong>${state.trips.length}</strong></div><div class="dashboard-card"><span class="meta">Trip points</span><strong>${totalPts}</strong><span class="meta">${visited} 已到訪</span></div><div class="dashboard-card"><span class="meta">Field records</span><strong>${state.records.length}</strong></div><div class="dashboard-card"><span class="meta">Taxa</span><strong>${taxa.size}</strong>${med!=null?`<span class="meta">GPS median ±${Math.round(med)} m</span>`:""}</div>`;
-  const counts=Array(12).fill(0);state.allRecords.forEach(r=>{const m=+String(r.eventDate||"").slice(5,7);if(m>=1&&m<=12)counts[m-1]++});const mx=Math.max(1,...counts);$("#monthChart").innerHTML=counts.map((v,i)=>`<div class="month-bar-wrap"><div class="month-bar" title="${i+1}月: ${v}" style="height:${Math.max(2,100*v/mx)}%"></div><span class="month-label">${i+1}</span></div>`).join("");
+  const counts=Array(12).fill(0);
+  state.allRecords.forEach(r=>{
+    const m=+String(r.eventDate||"").slice(5,7);
+    if(m>=1&&m<=12)counts[m-1]++;
+  });
+  const mx=Math.max(1,...counts),selected=Number($("#filterMonth").value)||0;
+  $("#monthChart").innerHTML=counts.map((v,i)=>`
+    <button type="button" class="month-bar-wrap ${selected===i+1?"selected":""}" data-month-filter="${i+1}" aria-label="${i+1} 月，共 ${v} 筆紀錄">
+      <span class="month-count">${v}</span>
+      <span class="month-bar" style="height:${Math.max(3,100*v/mx)}%"></span>
+      <span class="month-label">${i+1}月</span>
+    </button>`).join("");
+
+  $$("[data-month-filter]").forEach(b=>b.onclick=()=>{
+    const month=Number(b.dataset.monthFilter);
+    $("#filterMonth").value=(Number($("#filterMonth").value)===month)?"":String(month);
+    switchTab("explore");
+    applyFilters();
+    setStatus($("#filterMonth").value?`已套用 ${month} 月篩選。再次點同月份可取消。`:"已取消月份篩選。");
+  });
+
   const issues=state.records.flatMap(r=>qcRecord(r,state.records).map(x=>`${r.specimenId}: ${x}`));$("#qcList").innerHTML=issues.length?`<strong>${issues.length} 個提醒</strong><div class="meta warning">${issues.slice(0,30).map(esc).join("<br>")}</div>`:`<strong class="ok">QC PASS</strong>`;
 }
 function renderOfflineInfo(){
@@ -941,7 +1140,7 @@ function renderOfflineInfo(){
 
 async function exportBackup(){
   const photos=(await byProfile("photos",state.profile.id));const photoData=[];for(const p of photos){const b64=await blobToBase64(p.blob);photoData.push({...p,blob:null,dataUrl:b64})}
-  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.9.1",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,offlineMap:state.offlineArchive?{name:state.offlineArchive.name,size:state.offlineArchive.size,note:"PMTiles binary is not embedded in JSON backup; re-import it separately."}:null,exportedAt:new Date().toISOString()},null,2))
+  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.9.6",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,offlineMap:state.offlineArchive?{name:state.offlineArchive.name,size:state.offlineArchive.size,note:"PMTiles binary is not embedded in JSON backup; re-import it separately."}:null,exportedAt:new Date().toISOString()},null,2))
 }
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 async function dataUrlToBlob(url){return await (await fetch(url)).blob()}

@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.9.5</title>
+  <title>FieldScout v0.9.6</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.9.5 Entry Recovery</span></h1>
+        <h1>FieldScout <span class="version">v0.9.6 Field UX</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -80,6 +80,7 @@
           </div>
 
           <div id="taxonCard" class="taxon-card hidden"></div>
+          <div id="sourceHealth" class="source-health hidden"></div>
 
           <details class="control-block">
             <summary>進階篩選與排序</summary>
@@ -140,7 +141,21 @@
           <div id="seasonSummary" class="season-box hidden"></div>
 
           <div class="section-head">
-            <div><h2>物種紀錄</h2><p id="resultMeta">尚未搜尋</p></div>
+            <div>
+              <h2>推薦候選樣點 Top 5</h2>
+              <p>依紀錄密度、近期性、月份、距離、座標品質與多來源支持排名</p>
+            </div>
+            <button id="rerankBtn">重新排名</button>
+          </div>
+          <div id="candidateTopList" class="cards candidate-featured-list"></div>
+
+          <details id="otherCandidatesBlock" class="control-block">
+            <summary>其他候選樣點 <span id="otherCandidateCount"></span></summary>
+            <div id="candidateOtherList" class="cards candidate-other-list"></div>
+          </details>
+
+          <div class="section-head">
+            <div><h2>原始物種紀錄</h2><p id="resultMeta">尚未搜尋</p></div>
             <div class="button-row compact">
               <button id="addAllBtn">全部加入行程</button>
               <button id="searchCsvBtn">CSV</button>
@@ -148,12 +163,6 @@
             </div>
           </div>
           <div id="resultList" class="cards"></div>
-
-          <div class="section-head">
-            <div><h2>候選探點</h2><p>Ranking v2</p></div>
-            <button id="rerankBtn">重新排名</button>
-          </div>
-          <div id="candidateList" class="cards"></div>
         </section>
 
         <!-- Trips -->
@@ -172,6 +181,11 @@
             </label>
           </div>
 
+          <div class="route-sort-toolbar">
+            <span class="meta">路線排序</span>
+            <button id="routeNorthSouthBtn" type="button">北 → 南</button>
+            <button id="routeDistanceBtn" type="button">離我近 → 遠</button>
+          </div>
           <div id="routePlannerCard" class="route-planner-card">
             <div class="route-empty">加入採集目標後，這裡會生成導航路線。</div>
           </div>
@@ -347,6 +361,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
-  <script type="module" src="./app.js?v=0.9.5"></script>
+  <script type="module" src="./app.js?v=0.9.6"></script>
 </body>
 </html>

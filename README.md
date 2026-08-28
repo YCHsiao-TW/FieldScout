@@ -1,4 +1,4 @@
-# FieldScout v0.9.5 — Entry Recovery
+# FieldScout v0.9.6 — Field UX
 
 > **Taiwan Biodiversity Field Scouting Tool / 臺灣生物多樣性野外探點工具**
 
@@ -8,7 +8,7 @@
 
 FieldScout is a mobile-first, local-first biodiversity field scouting, trip-planning, navigation, and field-recording PWA for Taiwan.
 
-## v0.9.5
+## v0.9.6
 
 Occurrence sources now include:
 
@@ -36,3 +36,15 @@ Full documentation:
 
 - [繁體中文](README_ZH.md)
 - [English](README_EN.md)
+
+
+## v0.9.6 highlights
+
+- Route sorting: **north → south** or **nearest → farthest from current GPS**
+- **Top 5 candidate sites** pinned before remaining candidates and raw occurrence records
+- Per-search source health for **TBIA / TBN / GBIF / iNaturalist**
+- A failed TBIA or TBN request no longer breaks the whole search; unavailable sources are hidden for that search
+- Original-source occurrence thumbnails and image galleries where public media URLs are available
+- Interactive 12-month occurrence chart with visible record counts
+- Tap a month to apply that month as an Explore filter; tap it again to clear the filter
+

@@ -1,16 +1,27 @@
-# FieldScout v0.9.5 — Entry Recovery
+# FieldScout v0.9.6 — Field UX
 
 **🚀 Open the App: <https://ychsiao-tw.github.io/FieldScout/>**
 
-## v0.9.5 entry recovery
+
+## v0.9.6
+
+- Route reordering by north → south or current-GPS distance
+- Top 5 candidate sites pinned before other candidates and raw occurrences
+- Independent source health for TBIA, TBN, GBIF, and iNaturalist
+- Failed TBIA/TBN requests no longer break the whole search; unavailable sources are hidden for that search
+- Original-source thumbnails and image galleries where public media URLs are available
+- Interactive monthly occurrence chart with visible counts
+- Tapping a month applies or clears the corresponding Explore month filter
+
+## v0.9.6 entry recovery
 
 This release removes the forced IndexedDB v1 → v2 upgrade from the critical entry path, stores offline PMTiles in the existing cache store, closes DB connections after transactions, reports blocked databases, falls back when MarkerCluster is unavailable, and uses network-first versioned JavaScript modules to avoid stale service-worker code.
 
-## v0.9.5 route planner
+## v0.9.6 route planner
 
 The Trips screen is now route-first. Add A, B, C target sites from Explore and FieldScout renders the ordered route and generates a Google Maps multi-stop navigation link. Larger trips are split into practical route segments. Each site still has one-stop navigation, and Up/Down controls change the route order.
 
-## v0.9.5 hotfix
+## v0.9.6 hotfix
 
 All Add-to-Trip entry points now share a defensive trip workflow. If no trip exists, FieldScout automatically creates today's trip. Legacy trip data are normalized, coordinates are coerced to numbers, duplicates are reported, and errors are surfaced in the status bar.
 
@@ -20,7 +31,7 @@ It still runs as a **pure GitHub Pages app without a Firebase backend**.
 
 ## Occurrence sources
 
-v0.9.5 searches:
+v0.9.6 searches:
 
 - TBIA
 - **Taiwan Biodiversity Network (TBN) Open API v2.6**
