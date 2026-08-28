@@ -1,4 +1,4 @@
-# FieldScout v0.12.0
+# FieldScout v0.14.0
 
 **臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**
 
@@ -13,7 +13,7 @@ https://ychsiao-tw.github.io/FieldScout/
 
 ---
 
-## v0.12.0 Field Mode
+## v0.14.0 Field Page
 
 本版把「探點 → 行程 → 採集」進一步串成完整工作流程。
 
@@ -31,7 +31,7 @@ https://ychsiao-tw.github.io/FieldScout/
 候選樣點與路線最佳化皆屬 fieldwork heuristic，不是 SDM，也不是道路 routing engine。
 
 
-## v0.12.0 探索頁調整
+## v0.14.0 探索頁調整
 
 - 移除「摘要」分頁
 - 頂部分頁改為：探索 / 行程 / 採集 / 設定
@@ -801,7 +801,7 @@ FieldScout 是：
 
 Current version:
 
-**FieldScout v0.12.0**
+**FieldScout v0.14.0**
 
 目前階段：
 

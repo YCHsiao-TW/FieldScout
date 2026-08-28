@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.12.0</title>
+  <title>FieldScout v0.14.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.12.0 Field Mode</span></h1>
+        <h1>FieldScout <span class="version">v0.14.0 Field Page</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -46,6 +46,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="explore"><span class="tab-icon">⌖</span><span>探索</span></button>
       <button class="tab" data-tab="trips"><span class="tab-icon">↗</span><span>行程</span></button>
+      <button class="tab" data-tab="field"><span class="tab-icon">◎</span><span>野外</span></button>
       <button class="tab" data-tab="records"><span class="tab-icon">＋</span><span>採集</span></button>
       <button class="tab" data-tab="settings"><span class="tab-icon">⚙</span><span>設定</span></button>
     </nav>
@@ -57,10 +58,9 @@
         <button id="customPointBtn" class="map-fab add-point">＋</button>
         <div class="map-tools">
           <select id="basemapSelect" aria-label="地圖圖層">
-            <option value="osm">OSM Standard</option>
-            <option value="topo">OpenTopoMap 地形</option>
-            <option value="cyclosm">CyclOSM</option>
-            <option value="offline">Offline PMTiles</option>
+            <option value="osm">一般地圖</option>
+            <option value="topo">地形</option>
+            <option value="satellite">衛星影像</option>
           </select>
         </div>
       </section>
@@ -138,8 +138,6 @@
             </div>
           </details>
 
-          <div id="seasonSummary" class="season-box hidden"></div>
-
           <div class="explore-month-section">
             <div class="section-head">
               <div>
@@ -187,10 +185,7 @@
               <h2>本次採集行程</h2>
               <p>從探索頁加入點位後，這裡會自動產生 Google Maps 路線</p>
             </div>
-            <div class="button-row compact">
-              <button id="fieldModeBtn" class="primary">進入野外模式</button>
-              <button id="newTripBtn">新增行程</button>
-            </div>
+            <button id="newTripBtn">新增行程</button>
           </div>
 
           <div class="trip-toolbar">
@@ -203,13 +198,12 @@
             <div class="route-command-head">
               <div>
                 <strong>路線控制台</strong>
-                <div class="meta">重新排序只會改變採集目標順序，不會刪除紀錄。</div>
+                <div class="meta">行程點數不限；Google Maps 多點導航會自動分段，野外模式則逐點導航。</div>
               </div>
             </div>
             <div class="route-command-grid">
               <button id="routeOptimizeBtn" type="button" class="primary">最佳化順序</button>
               <button id="routeNorthSouthBtn" type="button">北 → 南</button>
-              <button id="routeDistanceBtn" type="button">離我近 → 遠</button>
               <button id="clearTripPointsBtn" type="button" class="danger-soft">全部移除</button>
             </div>
           </div>
@@ -249,12 +243,87 @@
           </div>
           <div id="tripPointList" class="cards"></div>
 
-          <div class="track-box">
-            <div><strong>GPS Track</strong><div id="trackMeta" class="meta">尚未開始</div></div>
-            <div class="button-row compact">
-              <button id="trackStartBtn">開始</button>
-              <button id="trackStopBtn" disabled>停止</button>
-              <button id="trackExportBtn">GPX</button>
+        </section>
+
+        <!-- Field -->
+        <section id="tab-field" class="tab-panel hidden">
+          <div class="section-head field-page-title">
+            <div>
+              <h2>野外</h2>
+              <p>執行目前行程：導航、訪查狀態、GPS Track 與快速採集紀錄。</p>
+            </div>
+            <button id="fieldGoTripBtn" type="button">行程管理</button>
+          </div>
+
+          <div class="field-trip-select">
+            <label>目前行程
+              <select id="fieldTripSelect"></select>
+            </label>
+          </div>
+
+          <div id="fieldEmptyState" class="field-empty-state hidden">
+            <div class="field-empty-icon">◎</div>
+            <h3>尚未有可執行的行程</h3>
+            <p>先到「行程」建立或選擇 Trip，並加入至少一個採集目標。</p>
+            <button id="fieldEmptyTripBtn" type="button" class="primary">前往行程</button>
+          </div>
+
+          <div id="fieldActiveContent">
+            <div class="field-progress-row">
+              <div>
+                <strong id="fieldModeTripName">Field Trip</strong>
+                <div id="fieldModeProgressText" class="meta">0 / 0 完成</div>
+              </div>
+              <div id="fieldGpsBadge" class="field-gps-badge">GPS —</div>
+            </div>
+
+            <div class="field-mode-progress-track">
+              <div id="fieldModeProgressBar" class="field-mode-progress-bar"></div>
+            </div>
+
+            <div class="field-target-card">
+              <div class="field-target-top">
+                <div id="fieldModeLetter" class="field-target-letter">A</div>
+                <div class="field-target-title">
+                  <div id="fieldModeName" class="field-target-name">尚無採集點</div>
+                  <div id="fieldModeStatus" class="field-status-pill">未訪查</div>
+                </div>
+                <div id="fieldModeDistance" class="field-distance">距離 —</div>
+              </div>
+              <div id="fieldModeMeta" class="meta"></div>
+              <div id="fieldModeRecordCount" class="field-record-count">0 筆採集紀錄</div>
+            </div>
+
+            <div class="field-mode-primary-actions">
+              <a id="fieldModeNavigateBtn" class="field-action-nav" target="_blank" rel="noopener">Google Maps 導航</a>
+              <button id="fieldModeQuickRecordBtn" type="button" class="primary">＋ 採集紀錄</button>
+            </div>
+
+            <div class="field-mode-status-actions">
+              <button id="fieldModeArrivedBtn" type="button">◎ 已到達</button>
+              <button id="fieldModeSurveyedBtn" type="button">✓ 完成調查</button>
+              <button id="fieldModeInaccessibleBtn" type="button">× 無法到達</button>
+              <button id="fieldModeRevisitBtn" type="button">↻ 再訪</button>
+            </div>
+
+            <div class="field-mode-nav">
+              <button id="fieldModePrevBtn" type="button">← 上一點</button>
+              <button id="fieldModeLocateBtn" type="button">◎ 更新 GPS</button>
+              <button id="fieldModeNextBtn" type="button">下一點 →</button>
+            </div>
+
+            <div id="fieldModeNextHint" class="field-next-hint"></div>
+
+            <div class="field-track-card">
+              <div>
+                <strong>GPS Track</strong>
+                <div id="trackMeta" class="meta">尚未開始</div>
+              </div>
+              <div class="button-row compact">
+                <button id="trackStartBtn" type="button">開始</button>
+                <button id="trackStopBtn" type="button" disabled>停止</button>
+                <button id="trackExportBtn" type="button">GPX</button>
+              </div>
             </div>
           </div>
         </section>
@@ -262,11 +331,11 @@
         <!-- Records -->
         <section id="tab-records" class="tab-panel hidden">
           <div class="section-head">
-            <div><h2>採集／觀察紀錄</h2><p>可批次沿用同一採集點 GPS</p></div>
-            <button id="batchSiteBtn">開始採集點</button>
+            <div>
+              <h2>採集／觀察紀錄</h2>
+              <p>可綁定行程點，或直接取得現場 GPS。</p>
+            </div>
           </div>
-
-          <div id="batchSiteBox" class="batch-box hidden"></div>
 
           <form id="recordForm">
             <input id="recordId" type="hidden">
@@ -287,8 +356,7 @@
                 </select>
               </label>
               <div class="trip-link-action">
-                <span class="meta">綁定後可把採集成果回連到 A / B / C 採集目標。</span>
-                <button id="useTripPointGpsBtn" type="button">使用行程點 GPS</button>
+                <span class="meta">綁定後，採集成果會回連到 A / B / C 採集目標。</span>
               </div>
             </div>
             <div class="two-col">
@@ -310,8 +378,8 @@
             <div class="gps-box">
               <div><strong id="recordGpsText">尚未取得 GPS</strong><div id="recordGpsAcc" class="meta"></div></div>
               <div class="button-row compact">
-                <button id="recordGpsBtn" type="button">取得 GPS</button>
-                <button id="useBatchGpsBtn" type="button">使用採集點 GPS</button>
+                <button id="recordGpsBtn" type="button">取得現場 GPS</button>
+                <button id="useTripPointGpsBtn" type="button">使用行程點 GPS</button>
               </div>
             </div>
 
@@ -352,18 +420,6 @@
           </div>
           <button id="saveSpecimenSettingsBtn">儲存編號設定</button>
 
-          <h3>離線地圖</h3>
-          <div id="offlineInfo" class="summary-box"></div>
-          <div class="button-row">
-            <label class="file-button">匯入 raster PMTiles
-              <input id="offlinePmtilesInput" type="file" accept=".pmtiles,application/octet-stream">
-            </label>
-            <button id="removeOfflineMapBtn" class="danger">移除離線地圖</button>
-          </div>
-          <div class="meta">
-            PMTiles 只存在目前 Local Profile 的 IndexedDB。建議使用 raster PMTiles；大型檔案會受 Safari 儲存空間限制。
-          </div>
-
           <h3>完整備份／還原</h3>
           <div class="button-row">
             <button id="backupBtn">匯出 Backup JSON</button>
@@ -381,58 +437,6 @@
   </main>
 
 
-  <section id="fieldMode" class="field-mode hidden" aria-live="polite">
-    <div class="field-mode-sheet">
-      <div class="field-mode-head">
-        <div>
-          <div class="eyebrow">FIELD MODE</div>
-          <strong id="fieldModeTripName">Field Trip</strong>
-        </div>
-        <button id="fieldModeExitBtn" type="button">退出</button>
-      </div>
-
-      <div class="field-mode-progress">
-        <div id="fieldModeProgressText">0 / 0</div>
-        <div class="field-mode-progress-track">
-          <div id="fieldModeProgressBar" class="field-mode-progress-bar"></div>
-        </div>
-      </div>
-
-      <div class="field-target-card">
-        <div class="field-target-top">
-          <div id="fieldModeLetter" class="field-target-letter">A</div>
-          <div class="field-target-title">
-            <div id="fieldModeName" class="field-target-name">尚無採集點</div>
-            <div id="fieldModeStatus" class="field-status-pill">unvisited</div>
-          </div>
-          <div id="fieldModeDistance" class="field-distance">—</div>
-        </div>
-        <div id="fieldModeMeta" class="meta"></div>
-        <div id="fieldModeRecordCount" class="field-record-count">0 筆採集紀錄</div>
-      </div>
-
-      <div class="field-mode-primary-actions">
-        <a id="fieldModeNavigateBtn" class="field-action-nav" target="_blank" rel="noopener">Google Maps 導航</a>
-        <button id="fieldModeQuickRecordBtn" type="button" class="primary">＋ 快速採集紀錄</button>
-      </div>
-
-      <div class="field-mode-status-actions">
-        <button id="fieldModeArrivedBtn" type="button">◎ 已到達</button>
-        <button id="fieldModeSurveyedBtn" type="button">✓ 完成調查</button>
-        <button id="fieldModeInaccessibleBtn" type="button">× 無法到達</button>
-        <button id="fieldModeRevisitBtn" type="button">↻ 再訪</button>
-      </div>
-
-      <div class="field-mode-nav">
-        <button id="fieldModePrevBtn" type="button">← 上一點</button>
-        <button id="fieldModeLocateBtn" type="button">◎ 更新 GPS</button>
-        <button id="fieldModeNextBtn" type="button">下一點 →</button>
-      </div>
-
-      <div id="fieldModeNextHint" class="field-next-hint"></div>
-    </div>
-  </section>
-
   <div id="modal" class="modal hidden">
     <div class="modal-card">
       <button id="modalClose" class="modal-close">×</button>
@@ -442,7 +446,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
-  <script type="module" src="./app.js?v=0.12.0"></script>
+  <script type="module" src="./app.js?v=0.14.0"></script>
 </body>
 </html>

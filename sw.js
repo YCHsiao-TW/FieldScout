@@ -1,8 +1,8 @@
-const CACHE="fieldscout-v0.12.0-shell";
+const CACHE="fieldscout-v0.14.0-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=0.12.0","./db.js?v=0.12.0","./utils.js?v=0.12.0",
-  "./api.js?v=0.12.0","./ranking.js?v=0.12.0",
+  "./app.js?v=0.14.0","./db.js?v=0.14.0","./utils.js?v=0.14.0",
+  "./api.js?v=0.14.0","./ranking.js?v=0.14.0",
   "./manifest.webmanifest"
 ];
 
@@ -38,7 +38,7 @@ self.addEventListener("fetch",e=>{
     u.hostname.includes("taicol.tw")||
     u.hostname.includes("openstreetmap.org")||
     u.hostname.includes("opentopomap.org")||
-    u.hostname.includes("cyclosm")||
+    u.hostname.includes("arcgisonline.com")||
     u.hostname.includes("unpkg.com")
   )return;
 

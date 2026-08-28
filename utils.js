@@ -31,24 +31,38 @@ export function googleMapsRouteUrl(points){
   return u.toString();
 }
 
-export function googleMapsRouteSegments(points,maxStops=10){
-  const valid=(points||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+export function googleMapsRouteSegments(points,options={}){
+  const valid=(points||[])
+    .map(p=>({...p,lat:Number(p.lat),lon:Number(p.lon)}))
+    .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+
   if(!valid.length)return [];
-  if(valid.length<=maxStops)return [valid];
+
+  // FieldScout itself has no Trip-point limit.
+  // Google Maps multi-stop URLs are split conservatively for cross-device
+  // reliability. Each next segment repeats the previous destination as origin context.
+  const maxStops=Math.max(2,Number(options.maxStops)||10);
+  const maxUrlLength=Math.max(800,Number(options.maxUrlLength)||1800);
 
   const segments=[];
-  let start=0;
-  while(start<valid.length){
-    const end=Math.min(valid.length,start+maxStops);
-    const seg=valid.slice(start,end);
-    if(start>0 && valid[start-1]){
-      seg.unshift(valid[start-1]);
+  let current=[];
+
+  for(const p of valid){
+    const candidate=[...current,p];
+    const testUrl=googleMapsRouteUrl(candidate);
+
+    if(current.length>=2 && (candidate.length>maxStops || testUrl.length>maxUrlLength)){
+      segments.push(current);
+      current=[current[current.length-1],p];
+    }else{
+      current=candidate;
     }
-    segments.push(seg);
-    start=end;
   }
+
+  if(current.length)segments.push(current);
   return segments;
 }
+
 export function downloadText(name,type,text){
   const a=document.createElement("a"),url=URL.createObjectURL(new Blob([text],{type}));
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
