@@ -1,4 +1,4 @@
-# FieldScout v0.9.8
+# FieldScout v0.10.0
 
 **臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**
 
@@ -12,6 +12,36 @@ https://ychsiao-tw.github.io/FieldScout/
 [English README](README_EN.md)
 
 ---
+
+## v0.10.0 Field Workflow
+
+本版把「探點 → 行程 → 採集」進一步串成完整工作流程。
+
+### 新功能
+
+- **路線最佳化**：使用最近鄰 heuristic，由目前 GPS（若可取得）開始重新排列採集點，降低直線回頭路；Google Maps 最後仍依道路導航。
+- **Trip Point ↔ Field Record**：採集紀錄可以綁定目前行程的 A / B / C 採集點；綁定後可直接使用該點 GPS，儲存紀錄時該點會自動標記為 `surveyed`。
+- **採集成果回連**：行程點會顯示已綁定的採集紀錄數。
+- **訪查狀態地圖化**：行程 marker 直接以 `unvisited / arrived / surveyed / inaccessible / revisit` 不同符號顯示。
+- **地名篩選**：可用 locality 文字搜尋，例如「南投」、「花蓮」。
+- **目前地圖範圍篩選**：勾選後只保留目前 map viewport 內的 occurrence；移動地圖會重新套用篩選。
+- **候選樣點推薦解釋**：每個 candidate 可查看 density、recency、month support、distance、coordinate quality、multi-source support 的分數拆解。
+- **路線距離摘要**：行程框顯示 FieldScout 計算的直線路徑估計，與 Google Maps 實際道路距離分開表示。
+
+候選樣點與路線最佳化皆屬 fieldwork heuristic，不是 SDM，也不是道路 routing engine。
+
+
+## v0.10.0 探索頁調整
+
+- 移除「摘要」分頁
+- 頂部分頁改為：探索 / 行程 / 採集 / 設定
+- 月份 occurrence 長條圖移到「探索」頁
+- 每月直接顯示紀錄筆數
+- 點月份可直接套用該月份篩選
+- 再點同月份可取消
+- 新增「全部月份」按鈕
+- 月份圖位於候選樣點 Top 5 前，方便在規劃採集點時直接參考季節性
+
 
 ## 1. FieldScout 是什麼？
 
@@ -771,7 +801,7 @@ FieldScout 是：
 
 Current version:
 
-**FieldScout v0.9.8**
+**FieldScout v0.10.0**
 
 目前階段：
 

@@ -1,4 +1,4 @@
-# FieldScout v0.9.8
+# FieldScout v0.10.0
 
 > **A mobile-first biodiversity field scouting and field-recording PWA for Taiwan**  
 > **以手機為優先的臺灣生物多樣性野外探點、行程規劃與採集紀錄工具**
@@ -9,6 +9,15 @@ https://ychsiao-tw.github.io/FieldScout/
 [繁體中文](README_ZH.md) | [English](README_EN.md)
 
 ---
+
+## v0.10.0 highlights
+
+- heuristic route optimization
+- Trip Point ↔ Field Record linking
+- visit-status map markers
+- locality and current-map-bounds filtering
+- explainable candidate ranking
+- linked collection counts per target site
 
 ## What is FieldScout?
 

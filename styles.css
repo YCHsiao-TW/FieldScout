@@ -226,3 +226,66 @@ label input,label select,label textarea{margin-top:4px}
     height:64px!important
   }
 }
+
+/* v0.9.8b Explore month chart */
+.explore-month-section{
+  margin:12px 0 14px;
+  padding:12px;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+.explore-month-section .section-head{
+  margin-top:0;
+}
+.explore-month-section .month-chart{
+  margin-top:8px;
+}
+
+/* v0.10.0 field workflow */
+.trip-link-row{
+  align-items:end;
+}
+.trip-link-action{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.candidate-breakdown{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:7px 12px;
+  margin:12px 0;
+}
+.candidate-breakdown strong{
+  font-variant-numeric:tabular-nums;
+}
+.trip-marker{
+  width:30px;height:30px;
+  border-radius:50%;
+  display:grid;place-items:center;
+  border:2px solid #fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+  font-size:14px;font-weight:900;
+  background:#111827;color:#fff;
+}
+.trip-marker.arrived{background:#2563eb}
+.trip-marker.surveyed{background:#166534}
+.trip-marker.inaccessible{background:#991b1b}
+.trip-marker.revisit{background:#92400e}
+.trip-marker.unvisited{background:#374151}
+.trip-record-count{
+  display:inline-flex;
+  border-radius:999px;
+  background:#eef2f7;
+  padding:3px 7px;
+  font-size:10px;
+  font-weight:700;
+}
+.route-summary-line{
+  display:flex;gap:10px;flex-wrap:wrap;
+  margin-top:7px;font-size:11px;color:var(--muted)
+}
+.map-filter-active{
+  font-weight:700;
+}

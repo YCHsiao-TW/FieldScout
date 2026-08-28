@@ -1,4 +1,4 @@
-# FieldScout v0.9.8
+# FieldScout v0.10.0
 
 **Mobile-first biodiversity field scouting, route planning, navigation, and field recording for Taiwan**
 
@@ -12,6 +12,17 @@ Fixes a malformed JavaScript fragment left in `renderTaxon()` in v0.9.7. The syn
 [繁體中文 README](README_ZH.md)
 
 ---
+
+## v0.10.0 Field Workflow
+
+- removed the Dashboard tab
+- top navigation is now Explore / Trips / Records / Settings
+- moved the interactive monthly occurrence chart into Explore
+- visible record counts for every month
+- tapping a month applies/removes the month filter
+- added an All months reset button
+- the chart now appears before the Top 5 candidate sites for field-planning context
+
 
 ## 1. What is FieldScout?
 
@@ -722,7 +733,7 @@ Candidate-site ranking should be interpreted as fieldwork decision support rathe
 
 Current release:
 
-**FieldScout v0.9.8**
+**FieldScout v0.10.0**
 
 Current architecture:
 

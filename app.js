@@ -1,7 +1,7 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.9.8";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.9.8";
-import {taxonomy,occurrences} from "./api.js?v=0.9.8";
-import {rankCandidates} from "./ranking.js?v=0.9.8";
+import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=0.10.0";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=0.10.0";
+import {taxonomy,occurrences} from "./api.js?v=0.10.0";
+import {rankCandidates} from "./ranking.js?v=0.10.0";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={
@@ -138,18 +138,30 @@ function setupStatic(){
   $("#basemapSelect").onchange=()=>selectBasemap($("#basemapSelect").value);
   $("#searchBtn").onclick=searchTaxon;$("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
   let at=null;$("#taxonInput").addEventListener("input",()=>{clearTimeout(at);const q=$("#taxonInput").value.trim();if(q.length<2){$("#autocomplete").classList.add("hidden");return}at=setTimeout(()=>autocomplete(q),250)});
-  $("#applyFiltersBtn").onclick=applyFilters;$("#resetFiltersBtn").onclick=resetFilters;$("#sortMode").onchange=applyFilters;
+  $("#applyFiltersBtn").onclick=applyFilters;
+  $("#resetFiltersBtn").onclick=resetFilters;
+  $("#sortMode").onchange=applyFilters;
+  $("#clearMonthChartBtn").onclick=()=>{
+    $("#filterMonth").value="";
+    applyFilters();
+    setStatus("已顯示全部月份。");
+  };
   $("#addAllBtn").onclick=addAllVisible;$("#rerankBtn").onclick=rerank;
   $("#searchCsvBtn").onclick=exportSearchCsv;$("#searchGeojsonBtn").onclick=exportSearchGeoJSON;
   $("#newTripBtn").onclick=newTrip;
   $("#tripSelect").onchange=()=>selectTrip($("#tripSelect").value);
   $("#saveTripMetaBtn").onclick=saveTripMeta;
   $("#deleteTripBtn").onclick=deleteTrip;
+  $("#routeOptimizeBtn").onclick=optimizeRoute;
   $("#routeNorthSouthBtn").onclick=sortRouteNorthSouth;
   $("#routeDistanceBtn").onclick=sortRouteByDistance;
   $("#tripCsvBtn").onclick=exportTripCsv;$("#tripGeojsonBtn").onclick=exportTripGeoJSON;$("#tripGpxBtn").onclick=exportTripGpx;$("#gpxImport").onchange=importGpx;
   $("#trackStartBtn").onclick=startTrack;$("#trackStopBtn").onclick=stopTrack;$("#trackExportBtn").onclick=()=>downloadText("fieldscout_track.gpx","application/gpx+xml",gpxTrack(state.track));
-  $("#batchSiteBtn").onclick=toggleBatchSite;$("#recordGpsBtn").onclick=captureRecordGps;$("#useBatchGpsBtn").onclick=useBatchGps;$("#nextSpecimenBtn").onclick=nextSpecimen;
+  $("#batchSiteBtn").onclick=toggleBatchSite;
+  $("#recordGpsBtn").onclick=captureRecordGps;
+  $("#useBatchGpsBtn").onclick=useBatchGps;
+  $("#useTripPointGpsBtn").onclick=useTripPointGps;
+  $("#nextSpecimenBtn").onclick=nextSpecimen;
   $("#recordForm").onsubmit=saveRecord;$("#cancelEditBtn").onclick=resetRecordForm;$("#recordsCsvBtn").onclick=exportRecordsCsv;$("#recordsGeojsonBtn").onclick=exportRecordsGeoJSON;$("#recordsSensitiveCsvBtn").onclick=exportSensitiveCsv;
   $("#saveSpecimenSettingsBtn").onclick=saveSpecimenSettings;
   $("#offlinePmtilesInput").onchange=importOfflinePmtiles;
@@ -162,7 +174,7 @@ function setupStatic(){
 
 function switchTab(name){
   $$(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));$$(".tab-panel").forEach(p=>p.classList.add("hidden"));$(`#tab-${name}`).classList.remove("hidden");
-  if(name==="dashboard")renderDashboard();if(name==="settings")renderOfflineInfo();
+  if(name==="settings")renderOfflineInfo();
 }
 
 async function initMap(){
@@ -195,6 +207,10 @@ async function initMap(){
   }
   state.tripLayer=L.layerGroup().addTo(state.map);
   L.control.zoom({position:"topright"}).addTo(state.map);
+
+  state.map.on("moveend",()=>{
+    if($("#filterMapBounds")?.checked)applyFilters();
+  });
 
   await restoreOfflineMap();
 }
@@ -399,13 +415,67 @@ function renderTaxon(){
 }
 
 function applyFilters(){
-  let l=[...state.allRecords];const st=$("#filterStart").value,en=$("#filterEnd").value,mo=+$("#filterMonth").value,src=$("#filterSource").value,bas=$("#filterBasis").value,unc=+$("#filterUncertainty").value,photo=$("#filterPhoto").checked,rad=+$("#filterRadius").value;
-  l=l.filter(r=>{const d=String(r.eventDate||"").slice(0,10);if(st&&d&&d<st)return false;if(en&&d&&d>en)return false;if(mo&&+d.slice(5,7)!==mo)return false;if(src&&!(r.sources||[]).includes(src))return false;if(bas&&!String(r.basisOfRecord||"").toUpperCase().includes(bas))return false;if(unc&&Number(r.uncertaintyM??Infinity)>unc)return false;if(photo&&!r.hasPhoto)return false;if(rad&&state.currentPos&&haversineKm(state.currentPos,{lat:r.lat,lon:r.lon})>rad)return false;return true});
+  let l=[...state.allRecords];
+
+  const st=$("#filterStart").value;
+  const en=$("#filterEnd").value;
+  const mo=+$("#filterMonth").value;
+  const src=$("#filterSource").value;
+  const bas=$("#filterBasis").value;
+  const unc=+$("#filterUncertainty").value;
+  const photo=$("#filterPhoto").checked;
+  const rad=+$("#filterRadius").value;
+  const locality=$("#filterLocality").value.trim().toLowerCase();
+  const mapBounds=$("#filterMapBounds").checked && state.map
+    ? state.map.getBounds()
+    : null;
+
+  l=l.filter(r=>{
+    const d=String(r.eventDate||"").slice(0,10);
+    if(st&&d&&d<st)return false;
+    if(en&&d&&d>en)return false;
+    if(mo&&+d.slice(5,7)!==mo)return false;
+    if(src&&!(r.sources||[]).includes(src))return false;
+    if(bas&&!String(r.basisOfRecord||"").toUpperCase().includes(bas))return false;
+    if(unc&&Number(r.uncertaintyM??Infinity)>unc)return false;
+    if(photo&&!r.hasPhoto)return false;
+    if(locality&&!String(r.locality||"").toLowerCase().includes(locality))return false;
+    if(rad&&state.currentPos&&haversineKm(state.currentPos,{lat:r.lat,lon:r.lon})>rad)return false;
+    if(mapBounds&&!mapBounds.contains([Number(r.lat),Number(r.lon)]))return false;
+    return true;
+  });
+
   const mode=$("#sortMode").value;
-  l.sort((a,b)=>mode==="date_desc"?String(b.eventDate).localeCompare(String(a.eventDate)):mode==="date_asc"?String(a.eventDate).localeCompare(String(b.eventDate)):mode==="uncertainty"?(a.uncertaintyM??Infinity)-(b.uncertaintyM??Infinity):mode==="source_count"?(b.sources?.length||0)-(a.sources?.length||0):state.currentPos?haversineKm(state.currentPos,{lat:a.lat,lon:a.lon})-haversineKm(state.currentPos,{lat:b.lat,lon:b.lon}):0);
-  state.filtered=l;renderOccurrences();rerank();renderSeason();$("#resultMeta").textContent=`${l.length} / ${state.allRecords.length} 筆`;
+  l.sort((a,b)=>
+    mode==="date_desc"
+      ? String(b.eventDate).localeCompare(String(a.eventDate))
+      : mode==="date_asc"
+        ? String(a.eventDate).localeCompare(String(b.eventDate))
+        : mode==="uncertainty"
+          ? (a.uncertaintyM??Infinity)-(b.uncertaintyM??Infinity)
+          : mode==="source_count"
+            ? (b.sources?.length||0)-(a.sources?.length||0)
+            : state.currentPos
+              ? haversineKm(state.currentPos,{lat:a.lat,lon:a.lon})-haversineKm(state.currentPos,{lat:b.lat,lon:b.lon})
+              : 0
+  );
+
+  state.filtered=l;
+  renderOccurrences();
+  rerank();
+  renderSeason();
+  renderMonthChart();
+  $("#resultMeta").textContent=
+    `${l.length} / ${state.allRecords.length} 筆${mapBounds?" · 目前地圖範圍":""}`;
 }
-function resetFilters(){["filterStart","filterEnd","filterMonth","filterRadius","filterSource","filterBasis","filterUncertainty"].forEach(id=>$("#"+id).value="");$("#filterPhoto").checked=false;applyFilters()}
+
+function resetFilters(){
+  ["filterStart","filterEnd","filterMonth","filterRadius","filterSource","filterBasis","filterUncertainty","filterLocality"]
+    .forEach(id=>$("#"+id).value="");
+  $("#filterPhoto").checked=false;
+  $("#filterMapBounds").checked=false;
+  applyFilters();
+}
 function renderOccurrences(){
   if(state.cluster)state.cluster.clearLayers();
   state.markerMap.clear();
@@ -549,10 +619,43 @@ function candidateCard(c,i,featured=false){
     </div>
     <div class="actions">
       <button data-cfocus="${i}">地圖</button>
+      <button data-cwhy="${i}">為什麼推薦？</button>
       <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(c.lat,c.lon)}">Google Maps</a>
       <button data-cadd="${i}">加入行程</button>
     </div>
   </article>`;
+}
+
+function showCandidateWhy(c){
+  const b=c.breakdown||{};
+  const rows=[
+    ["紀錄密度",b.density,25,`${c.count} 筆 occurrence`],
+    ["近期性",b.recency,20,c.newest?`最新 ${c.newest}`:"缺少年份"],
+    ["月份支持",b.season,20,`${c.targetMonth} 月 ${c.monthHits}/${c.count} 筆`],
+    ["距離／可達性",b.access,15,c.dist!=null?`${c.dist.toFixed(1)} km`:"尚未取得 GPS"],
+    ["座標品質",b.coordinate,10,`median ±${Math.round(c.medianUnc)} m`],
+    ["多來源支持",b.multiSource,10,(c.sources||[]).join(" + ")||"單一來源"]
+  ];
+
+  showModal(`
+    <h2>#${c.rank} ${esc(c.name)}</h2>
+    <div class="summary-box">
+      <strong>Ranking score：${c.score} / 100</strong>
+      <div class="meta">這是 FieldScout 的 heuristic field-scouting score，不是 SDM 或棲地適合度。</div>
+    </div>
+    <div class="candidate-breakdown">
+      ${rows.map(([name,val,max,note])=>`
+        <div>
+          <strong>${esc(name)}</strong>
+          <div class="meta">${esc(note)}</div>
+        </div>
+        <strong>${Number(val||0).toFixed(1)} / ${max}</strong>
+      `).join("")}
+    </div>
+    <div class="button-row">
+      <a class="nav-link" target="_blank" rel="noopener" href="${googleMapsUrl(c.lat,c.lon)}">Google Maps</a>
+    </div>
+  `);
 }
 
 function renderCandidates(){
@@ -573,6 +676,9 @@ function renderCandidates(){
   $$("[data-cfocus]").forEach(b=>b.onclick=()=>{
     const c=state.candidates[+b.dataset.cfocus];
     if(state.map)state.map.setView([c.lat,c.lon],15);
+  });
+  $$("[data-cwhy]").forEach(b=>b.onclick=()=>{
+    showCandidateWhy(state.candidates[+b.dataset.cwhy]);
   });
   $$("[data-cadd]").forEach(b=>b.onclick=()=>{
     const c=state.candidates[+b.dataset.cadd];
@@ -704,6 +810,95 @@ async function deleteTrip(){
 }
 
 
+function routeStraightKm(points,startPos=null){
+  const pts=(points||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+  if(!pts.length)return 0;
+  let total=0;
+  let prev=startPos?{lat:Number(startPos.lat),lon:Number(startPos.lon)}:pts[0];
+  const startIndex=startPos?0:1;
+  for(let i=startIndex;i<pts.length;i++){
+    total+=haversineKm(prev,{lat:Number(pts[i].lat),lon:Number(pts[i].lon)});
+    prev=pts[i];
+  }
+  return total;
+}
+
+function nearestNeighborOrder(points,startPos=null){
+  const remaining=(points||[]).map(p=>({...p}));
+  if(remaining.length<2)return remaining;
+
+  const ordered=[];
+  let current;
+
+  if(startPos){
+    current={lat:Number(startPos.lat),lon:Number(startPos.lon)};
+  }else{
+    const first=remaining.shift();
+    ordered.push(first);
+    current={lat:Number(first.lat),lon:Number(first.lon)};
+  }
+
+  while(remaining.length){
+    let bestIndex=0;
+    let bestDist=Infinity;
+    for(let i=0;i<remaining.length;i++){
+      const d=haversineKm(current,{
+        lat:Number(remaining[i].lat),
+        lon:Number(remaining[i].lon)
+      });
+      if(d<bestDist){
+        bestDist=d;
+        bestIndex=i;
+      }
+    }
+    const next=remaining.splice(bestIndex,1)[0];
+    ordered.push(next);
+    current={lat:Number(next.lat),lon:Number(next.lon)};
+  }
+  return ordered;
+}
+
+async function optimizeRoute(){
+  try{
+    const t=await ensureTrip();
+    if((t.points||[]).length<2){
+      setStatus("至少需要 2 個採集目標才能最佳化路線。");
+      return;
+    }
+
+    const run=async start=>{
+      const before=routeStraightKm(t.points,start);
+      t.points=nearestNeighborOrder(t.points,start);
+      const after=routeStraightKm(t.points,start);
+      await saveTrip();
+      renderTrips();
+      setStatus(`已用最近鄰 heuristic 重排：估計直線路徑 ${before.toFixed(1)} → ${after.toFixed(1)} km。Google Maps 仍會依道路重新導航。`);
+    };
+
+    if(state.currentPos){
+      await run(state.currentPos);
+      return;
+    }
+
+    if(!navigator.geolocation){
+      await run(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      p=>run({
+        lat:p.coords.latitude,
+        lon:p.coords.longitude,
+        accuracy:p.coords.accuracy
+      }).catch(e=>setStatus(`路線最佳化失敗：${e.message}`)),
+      ()=>run(null).catch(e=>setStatus(`路線最佳化失敗：${e.message}`)),
+      {enableHighAccuracy:true,timeout:10000}
+    );
+  }catch(e){
+    setStatus(`路線最佳化失敗：${e.message}`);
+  }
+}
+
 async function sortRouteNorthSouth(){
   try{
     const t=await ensureTrip();
@@ -770,6 +965,7 @@ function renderTrips(){
   $("#tripMeta").textContent=t?`${pts.length} 個採集目標 · ${t.status||"planned"}`:"尚未選擇";
 
   renderRoutePlanner(t);
+  renderRecordTripPointOptions();
 
   $("#tripPointList").innerHTML=pts.length
     ? pts.map((p,i)=>`
@@ -781,6 +977,7 @@ function renderTrips(){
               ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}
               · ${esc(p.source||"")}
               · ${esc(p.visitStatus||"unvisited")}
+              · <span class="trip-record-count">${state.records.filter(r=>r.tripId===t?.id&&r.tripPointId===p.id).length} 筆採集紀錄</span>
             </div>
           </div>
         </div>
@@ -800,9 +997,24 @@ function renderTrips(){
     if(pts.length>1){
       L.polyline(pts.map(p=>[Number(p.lat),Number(p.lon)]),{weight:3}).addTo(state.tripLayer);
     }
+    const statusSymbol={
+      unvisited:"•",
+      arrived:"◎",
+      surveyed:"✓",
+      inaccessible:"×",
+      revisit:"↻"
+    };
     pts.forEach((p,i)=>{
-      L.marker([Number(p.lat),Number(p.lon)])
-        .bindPopup(`${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}`)
+      const status=p.visitStatus||"unvisited";
+      const icon=L.divIcon({
+        className:"trip-marker-wrap",
+        html:`<div class="trip-marker ${esc(status)}">${statusSymbol[status]||"•"}</div>`,
+        iconSize:[30,30],
+        iconAnchor:[15,15]
+      });
+      const linked=state.records.filter(r=>r.tripId===t?.id&&r.tripPointId===p.id).length;
+      L.marker([Number(p.lat),Number(p.lon)],{icon})
+        .bindPopup(`<strong>${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")}</strong><br><span class="meta">${esc(status)} · ${linked} 筆採集紀錄</span>`)
         .addTo(state.tripLayer);
     });
   }
@@ -896,6 +1108,10 @@ function renderRoutePlanner(t){
              ${pts.length===1?"導航到此點":"開始多點導航"}
            </a>`
         : `<span class="meta">點位較多，已分成 ${segments.length} 段</span>`}
+    </div>
+    <div class="route-summary-line">
+      <span>FieldScout 直線路徑估計：${routeStraightKm(pts,state.currentPos).toFixed(1)} km</span>
+      <span>Google Maps 將依實際道路計算</span>
     </div>
     <div class="route-path">${stopHtml}</div>
     ${segmentHtml}
@@ -1036,28 +1252,190 @@ async function importGpx(e){
 function startTrack(){state.track=[];$("#trackStartBtn").disabled=true;$("#trackStopBtn").disabled=false;state.trackWatch=navigator.geolocation.watchPosition(p=>{state.track.push({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,time:Date.now()});$("#trackMeta").textContent=`${state.track.length} 點 · ±${Math.round(p.coords.accuracy)} m`},e=>setStatus(e.message),{enableHighAccuracy:true,maximumAge:0,timeout:20000})}
 async function stopTrack(){if(state.trackWatch!=null)navigator.geolocation.clearWatch(state.trackWatch);state.trackWatch=null;$("#trackStartBtn").disabled=false;$("#trackStopBtn").disabled=true;if(state.activeTrip){state.activeTrip.track=[...state.track];await saveTrip()}}
 
+function activeTripPointById(id){
+  if(!id||!state.activeTrip)return null;
+  return (state.activeTrip.points||[]).find(p=>String(p.id)===String(id))||null;
+}
+
+function renderRecordTripPointOptions(selectedValue=null){
+  const sel=$("#recordTripPoint");
+  if(!sel)return;
+
+  const current=selectedValue!==null
+    ? String(selectedValue||"")
+    : String(sel.value||"");
+
+  const pts=state.activeTrip?.points||[];
+  sel.innerHTML=
+    `<option value="">未綁定行程點</option>`+
+    pts.map((p,i)=>`
+      <option value="${esc(p.id)}">
+        ${String.fromCharCode(65+(i%26))}. ${esc(p.name||"Point")} · ${esc(p.visitStatus||"unvisited")}
+      </option>`).join("");
+
+  if(pts.some(p=>String(p.id)===current))sel.value=current;
+}
+
+function useTripPointGps(){
+  const p=activeTripPointById($("#recordTripPoint").value);
+  if(!p){
+    setStatus("請先選擇一個行程採集點。");
+    return;
+  }
+  state.recordGps={
+    lat:Number(p.lat),
+    lon:Number(p.lon),
+    accuracyM:null
+  };
+  renderRecordGps();
+  setStatus(`已使用行程點「${p.name}」的座標。`);
+}
+
 function toggleBatchSite(){if(state.batchSite){state.batchSite=null;$("#batchSiteBox").classList.add("hidden");$("#batchSiteBtn").textContent="開始採集點";return}navigator.geolocation.getCurrentPosition(p=>{state.batchSite={id:crypto.randomUUID(),startedAt:new Date().toISOString(),lat:p.coords.latitude,lon:p.coords.longitude,accuracyM:p.coords.accuracy};$("#batchSiteBox").classList.remove("hidden");$("#batchSiteBox").innerHTML=`<strong>採集點進行中</strong><div class="meta">${state.batchSite.lat.toFixed(5)}, ${state.batchSite.lon.toFixed(5)} · ±${Math.round(state.batchSite.accuracyM)} m · ${new Date(state.batchSite.startedAt).toLocaleString("zh-TW")}</div>`;$("#batchSiteBtn").textContent="結束採集點"})}
 function useBatchGps(){if(!state.batchSite){setStatus("尚未開始採集點。");return}state.recordGps={lat:state.batchSite.lat,lon:state.batchSite.lon,accuracyM:state.batchSite.accuracyM};renderRecordGps()}
 function captureRecordGps(){navigator.geolocation.getCurrentPosition(p=>{state.recordGps={lat:p.coords.latitude,lon:p.coords.longitude,accuracyM:p.coords.accuracy};renderRecordGps()},e=>setStatus(e.message),{enableHighAccuracy:true,timeout:15000})}
 function renderRecordGps(){if(!state.recordGps){$("#recordGpsText").textContent="尚未取得 GPS";$("#recordGpsAcc").textContent="";return}$("#recordGpsText").textContent=`${state.recordGps.lat.toFixed(5)}, ${state.recordGps.lon.toFixed(5)}`;$("#recordGpsAcc").textContent=`±${Math.round(state.recordGps.accuracyM)} m`}
 async function nextSpecimen(){const p=state.settings.specimenPrefix||"FS",n=state.settings.specimenCounter||1;$("#specimenId").value=`${p}${String(n).padStart(5,"0")}`;state.settings.specimenCounter=n+1;$("#specimenCounter").value=state.settings.specimenCounter;await put("settings",state.settings)}
 async function saveRecord(e){
-  e.preventDefault();const id=$("#recordId").value||crypto.randomUUID(),old=state.records.find(r=>r.id===id);const files=[...$("#recordPhotos").files],photoIds=[...(old?.photoIds||[])];
-  for(const f of files){const blob=await sanitizeImage(f),pid=crypto.randomUUID();await put("photos",{id:pid,profileId:state.profile.id,recordId:id,blob,createdAt:new Date().toISOString()});photoIds.push(pid)}
-  const r={id,profileId:state.profile.id,specimenId:$("#specimenId").value.trim(),count:Math.max(1,+$("#recordCount").value||1),taxon:$("#recordTaxon").value.trim(),microhabitat:$("#microhabitat").value,method:$("#method").value,notes:$("#recordNotes").value.trim(),lat:state.recordGps?.lat??old?.lat??null,lon:state.recordGps?.lon??old?.lon??null,accuracyM:state.recordGps?.accuracyM??old?.accuracyM??null,batchSiteId:state.batchSite?.id||old?.batchSiteId||null,photoIds,createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
-  await put("records",r);state.records=state.records.filter(x=>x.id!==id);state.records.unshift(r);resetRecordForm();renderRecords();renderDashboard();setStatus("採集紀錄已儲存。")
+  e.preventDefault();
+
+  const id=$("#recordId").value||crypto.randomUUID();
+  const old=state.records.find(r=>r.id===id);
+  const files=[...$("#recordPhotos").files];
+  const photoIds=[...(old?.photoIds||[])];
+
+  for(const f of files){
+    const blob=await sanitizeImage(f);
+    const pid=crypto.randomUUID();
+    await put("photos",{
+      id:pid,
+      profileId:state.profile.id,
+      recordId:id,
+      blob,
+      createdAt:new Date().toISOString()
+    });
+    photoIds.push(pid);
+  }
+
+  const tripPointId=$("#recordTripPoint").value||null;
+  const linkedPoint=activeTripPointById(tripPointId);
+
+  const r={
+    id,
+    profileId:state.profile.id,
+    specimenId:$("#specimenId").value.trim(),
+    count:Math.max(1,+$("#recordCount").value||1),
+    taxon:$("#recordTaxon").value.trim(),
+    microhabitat:$("#microhabitat").value,
+    method:$("#method").value,
+    notes:$("#recordNotes").value.trim(),
+    lat:state.recordGps?.lat??old?.lat??linkedPoint?.lat??null,
+    lon:state.recordGps?.lon??old?.lon??linkedPoint?.lon??null,
+    accuracyM:state.recordGps?.accuracyM??old?.accuracyM??null,
+    batchSiteId:state.batchSite?.id||old?.batchSiteId||null,
+    tripId:tripPointId?(state.activeTrip?.id||old?.tripId||null):null,
+    tripPointId,
+    photoIds,
+    createdAt:old?.createdAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+
+  await put("records",r);
+  state.records=state.records.filter(x=>x.id!==id);
+  state.records.unshift(r);
+
+  // A field record linked to a target means the site has at least been surveyed.
+  if(linkedPoint && state.activeTrip){
+    if(["unvisited","arrived"].includes(linkedPoint.visitStatus||"unvisited")){
+      linkedPoint.visitStatus="surveyed";
+      linkedPoint.surveyedAt=new Date().toISOString();
+      await saveTrip();
+    }
+  }
+
+  resetRecordForm();
+  renderRecords();
+  renderTrips();
+  setStatus(linkedPoint
+    ? `採集紀錄已儲存並綁定「${linkedPoint.name}」。`
+    : "採集紀錄已儲存。");
 }
-function resetRecordForm(){$("#recordForm").reset();$("#recordCount").value=1;$("#recordId").value="";state.recordGps=null;renderRecordGps();$("#saveRecordBtn").textContent="儲存紀錄";$("#cancelEditBtn").classList.add("hidden")}
-async function editRecord(r){switchTab("records");$("#recordId").value=r.id;$("#specimenId").value=r.specimenId;$("#recordCount").value=r.count;$("#recordTaxon").value=r.taxon||"";$("#microhabitat").value=r.microhabitat;$("#method").value=r.method;$("#recordNotes").value=r.notes||"";if(r.lat!=null)state.recordGps={lat:r.lat,lon:r.lon,accuracyM:r.accuracyM||0};renderRecordGps();$("#saveRecordBtn").textContent="更新紀錄";$("#cancelEditBtn").classList.remove("hidden")}
+
+function resetRecordForm(){
+  $("#recordForm").reset();
+  $("#recordCount").value=1;
+  $("#recordId").value="";
+  state.recordGps=null;
+  renderRecordGps();
+  renderRecordTripPointOptions("");
+  $("#saveRecordBtn").textContent="儲存紀錄";
+  $("#cancelEditBtn").classList.add("hidden");
+}
+async function editRecord(r){
+  switchTab("records");
+  $("#recordId").value=r.id;
+  $("#specimenId").value=r.specimenId;
+  $("#recordCount").value=r.count;
+  $("#recordTaxon").value=r.taxon||"";
+  $("#microhabitat").value=r.microhabitat;
+  $("#method").value=r.method;
+  $("#recordNotes").value=r.notes||"";
+  renderRecordTripPointOptions(r.tripPointId||"");
+  if(r.lat!=null)state.recordGps={lat:Number(r.lat),lon:Number(r.lon),accuracyM:Number(r.accuracyM)||0};
+  renderRecordGps();
+  $("#saveRecordBtn").textContent="更新紀錄";
+  $("#cancelEditBtn").classList.remove("hidden");
+}
 async function deleteRecord(id){if(!confirm("刪除此紀錄？"))return;await del("records",id);const photos=(await byProfile("photos",state.profile.id)).filter(p=>p.recordId===id);for(const p of photos)await del("photos",p.id);state.records=state.records.filter(r=>r.id!==id);renderRecords()}
 function renderRecords(){
   $("#recordMeta").textContent=`${state.records.length} 筆`;
-  $("#recordList").innerHTML=state.records.length?state.records.map((r,i)=>{const issues=qcRecord(r,state.records);return `<article class="card"><h3>${esc(r.specimenId)} · ${esc(r.taxon||"未定名")}</h3><div class="meta">${r.count} 個體 · ${esc(r.microhabitat)} · ${esc(r.method)}<br>${r.lat!=null?`${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · ±${Math.round(r.accuracyM||0)} m`:"無 GPS"}<br>${new Date(r.updatedAt).toLocaleString("zh-TW")}</div>${issues.length?`<div class="meta warning">QC：${esc(issues.join("；"))}</div>`:`<div class="meta ok">QC PASS</div>`}<div class="actions"><button data-redit="${i}">編輯</button><button data-rdel="${i}">刪除</button>${r.lat!=null?`<button data-rfocus="${i}">地圖</button><a class="nav-link" target="_blank" href="${googleMapsUrl(r.lat,r.lon)}">Google Maps</a>`:""}${r.photoIds?.length?`<button data-rphotos="${i}">照片 ${r.photoIds.length}</button>`:""}</div></article>`}).join(""):`<div class="empty">尚無採集紀錄。</div>`;
-  $$("[data-redit]").forEach(b=>b.onclick=()=>editRecord(state.records[+b.dataset.redit]));$$("[data-rdel]").forEach(b=>b.onclick=()=>deleteRecord(state.records[+b.dataset.rdel].id));$$("[data-rfocus]").forEach(b=>b.onclick=()=>{const r=state.records[+b.dataset.rfocus];switchTab("explore");state.map.setView([r.lat,r.lon],16)});$$("[data-rphotos]").forEach(b=>b.onclick=()=>showPhotos(state.records[+b.dataset.rphotos]))
+
+  $("#recordList").innerHTML=state.records.length
+    ? state.records.map((r,i)=>{
+        const issues=qcRecord(r,state.records);
+        const linkedTrip=state.trips.find(t=>t.id===r.tripId);
+        const linkedPoint=(linkedTrip?.points||[]).find(p=>p.id===r.tripPointId);
+        const lat=Number(r.lat),lon=Number(r.lon);
+        const hasGps=Number.isFinite(lat)&&Number.isFinite(lon);
+
+        return `<article class="card">
+          <h3>${esc(r.specimenId)} · ${esc(r.taxon||"未定名")}</h3>
+          <div class="meta">
+            ${r.count} 個體 · ${esc(r.microhabitat)} · ${esc(r.method)}<br>
+            ${hasGps?`${lat.toFixed(5)}, ${lon.toFixed(5)} · ±${Math.round(Number(r.accuracyM)||0)} m`:"無 GPS"}<br>
+            ${linkedPoint?`行程點：${esc(linkedPoint.name)}<br>`:""}
+            ${new Date(r.updatedAt).toLocaleString("zh-TW")}
+          </div>
+          ${issues.length
+            ? `<div class="meta warning">QC：${esc(issues.join("；"))}</div>`
+            : `<div class="meta ok">QC PASS</div>`}
+          <div class="actions">
+            <button data-redit="${i}">編輯</button>
+            <button data-rdel="${i}">刪除</button>
+            ${hasGps?`<button data-rfocus="${i}">地圖</button><a class="nav-link" target="_blank" href="${googleMapsUrl(lat,lon)}">Google Maps</a>`:""}
+            ${r.photoIds?.length?`<button data-rphotos="${i}">照片 ${r.photoIds.length}</button>`:""}
+          </div>
+        </article>`;
+      }).join("")
+    : `<div class="empty">尚無採集紀錄。</div>`;
+
+  $$("[data-redit]").forEach(b=>b.onclick=()=>editRecord(state.records[+b.dataset.redit]));
+  $$("[data-rdel]").forEach(b=>b.onclick=()=>deleteRecord(state.records[+b.dataset.rdel].id));
+  $$("[data-rfocus]").forEach(b=>b.onclick=()=>{
+    const r=state.records[+b.dataset.rfocus];
+    switchTab("explore");
+    if(state.map)state.map.setView([Number(r.lat),Number(r.lon)],16);
+  });
+  $$("[data-rphotos]").forEach(b=>b.onclick=()=>showPhotos(state.records[+b.dataset.rphotos]));
 }
+
 async function showPhotos(r){const ps=(await byProfile("photos",state.profile.id)).filter(p=>r.photoIds.includes(p.id));const urls=ps.map(p=>URL.createObjectURL(p.blob));showModal(`<h2>${esc(r.specimenId)}</h2><div class="photo-grid">${urls.map(u=>`<img src="${u}">`).join("")}</div>`)}
-function exportRecordsCsv(){const rows=[["id","specimenId","count","taxon","microhabitat","method","notes","latitude","longitude","accuracyM","createdAt","updatedAt"]];state.records.forEach(r=>rows.push([r.id,r.specimenId,r.count,r.taxon,r.microhabitat,r.method,r.notes,r.lat??"",r.lon??"",r.accuracyM??"",r.createdAt,r.updatedAt]));downloadText("fieldscout_records.csv","text/csv;charset=utf-8",toCSV(rows))}
-function exportRecordsGeoJSON(){downloadText("fieldscout_records.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.records,r=>({specimenId:r.specimenId,count:r.count,taxon:r.taxon,microhabitat:r.microhabitat,method:r.method,notes:r.notes,accuracyM:r.accuracyM})),null,2))}
+function exportRecordsCsv(){
+  const rows=[["id","specimenId","count","taxon","microhabitat","method","notes","latitude","longitude","accuracyM","tripId","tripPointId","createdAt","updatedAt"]];
+  state.records.forEach(r=>rows.push([r.id,r.specimenId,r.count,r.taxon,r.microhabitat,r.method,r.notes,r.lat??"",r.lon??"",r.accuracyM??"",r.tripId||"",r.tripPointId||"",r.createdAt,r.updatedAt]));
+  downloadText("fieldscout_records.csv","text/csv;charset=utf-8",toCSV(rows));
+}
+function exportRecordsGeoJSON(){downloadText("fieldscout_records.geojson","application/geo+json",JSON.stringify(geojsonPoints(state.records,r=>({specimenId:r.specimenId,count:r.count,taxon:r.taxon,microhabitat:r.microhabitat,method:r.method,notes:r.notes,accuracyM:r.accuracyM,tripId:r.tripId||null,tripPointId:r.tripPointId||null})),null,2))}
 function exportSensitiveCsv(){const radius=+prompt("座標模糊半徑（公尺）","1000")||1000,rows=[["specimenId","taxon","latitude","longitude","obscureRadiusM"]];state.records.forEach(r=>{if(r.lat==null)return;const p=obscurePoint(r.lat,r.lon,radius,`${state.profile.id}:${r.id}`);rows.push([r.specimenId,r.taxon,p.lat,p.lon,radius])});downloadText("fieldscout_records_obscured.csv","text/csv;charset=utf-8",toCSV(rows))}
 
 function exportSearchCsv(){
@@ -1092,18 +1470,21 @@ function exportSearchGeoJSON(){
 }
 
 async function saveSpecimenSettings(){state.settings.specimenPrefix=$("#specimenPrefix").value.trim()||"FS";state.settings.specimenCounter=Math.max(1,+$("#specimenCounter").value||1);await put("settings",state.settings);setStatus("編號設定已儲存。")}
-function renderDashboard(){
-  const visited=state.trips.flatMap(t=>t.points||[]).filter(p=>["arrived","surveyed","revisit"].includes(p.visitStatus)).length,totalPts=state.trips.reduce((s,t)=>s+(t.points?.length||0),0);
-  const taxa=new Set(state.records.map(r=>r.taxon).filter(Boolean));const acc=state.records.map(r=>Number(r.accuracyM)).filter(Number.isFinite).sort((a,b)=>a-b),med=acc.length?acc[Math.floor(acc.length/2)]:null;
-  $("#dashboardCards").innerHTML=`<div class="dashboard-card"><span class="meta">Trips</span><strong>${state.trips.length}</strong></div><div class="dashboard-card"><span class="meta">Trip points</span><strong>${totalPts}</strong><span class="meta">${visited} 已到訪</span></div><div class="dashboard-card"><span class="meta">Field records</span><strong>${state.records.length}</strong></div><div class="dashboard-card"><span class="meta">Taxa</span><strong>${taxa.size}</strong>${med!=null?`<span class="meta">GPS median ±${Math.round(med)} m</span>`:""}</div>`;
+function renderMonthChart(){
   const counts=Array(12).fill(0);
   state.allRecords.forEach(r=>{
     const m=+String(r.eventDate||"").slice(5,7);
     if(m>=1&&m<=12)counts[m-1]++;
   });
-  const mx=Math.max(1,...counts),selected=Number($("#filterMonth").value)||0;
+
+  const mx=Math.max(1,...counts);
+  const selected=Number($("#filterMonth").value)||0;
+
   $("#monthChart").innerHTML=counts.map((v,i)=>`
-    <button type="button" class="month-bar-wrap ${selected===i+1?"selected":""}" data-month-filter="${i+1}" aria-label="${i+1} 月，共 ${v} 筆紀錄">
+    <button type="button"
+      class="month-bar-wrap ${selected===i+1?"selected":""}"
+      data-month-filter="${i+1}"
+      aria-label="${i+1} 月，共 ${v} 筆紀錄">
       <span class="month-count">${v}</span>
       <span class="month-bar" style="height:${Math.max(3,100*v/mx)}%"></span>
       <span class="month-label">${i+1}月</span>
@@ -1112,13 +1493,14 @@ function renderDashboard(){
   $$("[data-month-filter]").forEach(b=>b.onclick=()=>{
     const month=Number(b.dataset.monthFilter);
     $("#filterMonth").value=(Number($("#filterMonth").value)===month)?"":String(month);
-    switchTab("explore");
     applyFilters();
-    setStatus($("#filterMonth").value?`已套用 ${month} 月篩選。再次點同月份可取消。`:"已取消月份篩選。");
+    setStatus($("#filterMonth").value
+      ? `已套用 ${month} 月篩選。再次點同月份可取消。`
+      : "已取消月份篩選。");
   });
-
-  const issues=state.records.flatMap(r=>qcRecord(r,state.records).map(x=>`${r.specimenId}: ${x}`));$("#qcList").innerHTML=issues.length?`<strong>${issues.length} 個提醒</strong><div class="meta warning">${issues.slice(0,30).map(esc).join("<br>")}</div>`:`<strong class="ok">QC PASS</strong>`;
 }
+
+
 function renderOfflineInfo(){
   const offline=state.offlineArchive;
   $("#offlineInfo").innerHTML=`
@@ -1133,7 +1515,7 @@ function renderOfflineInfo(){
 
 async function exportBackup(){
   const photos=(await byProfile("photos",state.profile.id));const photoData=[];for(const p of photos){const b64=await blobToBase64(p.blob);photoData.push({...p,blob:null,dataUrl:b64})}
-  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.9.6",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,offlineMap:state.offlineArchive?{name:state.offlineArchive.name,size:state.offlineArchive.size,note:"PMTiles binary is not embedded in JSON backup; re-import it separately."}:null,exportedAt:new Date().toISOString()},null,2))
+  const caches=await byProfile("cache",state.profile.id);downloadText("fieldscout_backup.json","application/json",JSON.stringify({version:"0.10.0",profile:state.profile,settings:state.settings,trips:state.trips,records:state.records,photos:photoData,cache:caches,offlineMap:state.offlineArchive?{name:state.offlineArchive.name,size:state.offlineArchive.size,note:"PMTiles binary is not embedded in JSON backup; re-import it separately."}:null,exportedAt:new Date().toISOString()},null,2))
 }
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 async function dataUrlToBlob(url){return await (await fetch(url)).blob()}
@@ -1152,5 +1534,5 @@ function switchProfile(){location.reload()}
 async function deleteProfile(){if(!confirm(`永久刪除 ${state.profile.email} 在此瀏覽器的所有 FieldScout 資料？`))return;await deleteProfileData(state.profile.id);location.reload()}
 function showModal(html){$("#modalBody").innerHTML=html;$("#modal").classList.remove("hidden")}
 
-function renderAll(){renderTrips();renderRecords();renderDashboard();renderOfflineInfo()}
+function renderAll(){renderTrips();renderRecords();renderMonthChart();renderOfflineInfo()}
 boot();

@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v0.9.8</title>
+  <title>FieldScout v0.10.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -33,7 +33,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">TAIWAN BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v0.9.8 Runtime Hotfix</span></h1>
+        <h1>FieldScout <span class="version">v0.10.0 Field Workflow</span></h1>
       </div>
       <div class="top-actions">
         <span id="netBadge" class="badge">ONLINE</span>
@@ -47,7 +47,6 @@
       <button class="tab active" data-tab="explore">探索</button>
       <button class="tab" data-tab="trips">行程</button>
       <button class="tab" data-tab="records">採集</button>
-      <button class="tab" data-tab="dashboard">摘要</button>
       <button class="tab" data-tab="settings">設定</button>
     </nav>
 
@@ -127,7 +126,11 @@
                   <option value="source_count">多來源支持</option>
                 </select>
               </label>
+              <label>縣市／地名
+                <input id="filterLocality" type="search" placeholder="例如 南投、花蓮">
+              </label>
               <label class="check-label"><input id="filterPhoto" type="checkbox"> 有照片</label>
+              <label class="check-label"><input id="filterMapBounds" type="checkbox"> 只看目前地圖範圍</label>
             </div>
             <div class="button-row">
               <button id="applyFiltersBtn">套用</button>
@@ -136,6 +139,17 @@
           </details>
 
           <div id="seasonSummary" class="season-box hidden"></div>
+
+          <div class="explore-month-section">
+            <div class="section-head">
+              <div>
+                <h2>月份紀錄</h2>
+                <p>點月份可直接篩選該月紀錄</p>
+              </div>
+              <button id="clearMonthChartBtn" type="button">全部月份</button>
+            </div>
+            <div id="monthChart" class="month-chart"></div>
+          </div>
 
           <div class="section-head">
             <div>
@@ -180,6 +194,7 @@
 
           <div class="route-sort-toolbar">
             <span class="meta">路線排序</span>
+            <button id="routeOptimizeBtn" type="button" class="primary">最佳化順序</button>
             <button id="routeNorthSouthBtn" type="button">北 → 南</button>
             <button id="routeDistanceBtn" type="button">離我近 → 遠</button>
           </div>
@@ -249,6 +264,17 @@
               <label>數量<input id="recordCount" type="number" min="1" value="1"></label>
             </div>
             <label>物種<input id="recordTaxon" placeholder="Scientific name / 中文名"></label>
+            <div class="two-col trip-link-row">
+              <label>對應行程採集點
+                <select id="recordTripPoint">
+                  <option value="">未綁定行程點</option>
+                </select>
+              </label>
+              <div class="trip-link-action">
+                <span class="meta">綁定後可把採集成果回連到 A / B / C 採集目標。</span>
+                <button id="useTripPointGpsBtn" type="button">使用行程點 GPS</button>
+              </div>
+            </div>
             <div class="two-col">
               <label>微棲地
                 <select id="microhabitat">
@@ -292,16 +318,6 @@
             </div>
           </div>
           <div id="recordList" class="cards"></div>
-        </section>
-
-        <!-- Dashboard -->
-        <section id="tab-dashboard" class="tab-panel hidden">
-          <h2>Field Dashboard</h2>
-          <div id="dashboardCards" class="dashboard-grid"></div>
-          <div class="section-head"><div><h2>月份分布</h2><p>目前搜尋物種</p></div></div>
-          <div id="monthChart" class="month-chart"></div>
-          <div class="section-head"><div><h2>資料品質</h2><p>採集紀錄 QC</p></div></div>
-          <div id="qcList" class="summary-box"></div>
         </section>
 
         <!-- Settings -->
@@ -358,6 +374,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
-  <script type="module" src="./app.js?v=0.9.8"></script>
+  <script type="module" src="./app.js?v=0.10.0"></script>
 </body>
 </html>
