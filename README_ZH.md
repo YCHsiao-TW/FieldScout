@@ -1,4 +1,4 @@
-# FieldScout v0.17.2
+# FieldScout v1.0.0
 
 **生物多樣性野外探點、行程規劃、導航與採集紀錄 PWA**
 
@@ -11,6 +11,22 @@ https://github.com/YCHsiao-TW/FieldScout
 [English README](README_EN.md)
 
 ---
+
+## v1.0.0 穩定版
+
+1.0.0 延續 v0.17.2 的資料格式，並完成正式版前的穩定性修正：
+
+- occurrence API 全部離線時正確讀取既有快取，不再以空結果覆蓋快取
+- 「只看目前地圖範圍」不再因自動縮放反覆觸發篩選
+- 空白／無效座標不再被誤判為 `0,0`
+- 行程點超過 26 個時使用 `AA`、`AB`…，不再重複從 A 開始
+- Trip 與 visit status 依介面語言顯示，資料庫中的 machine value 不變
+- iNaturalist 模糊座標改用公開的不確定半徑，避免高估座標精度
+- GPX／GeoJSON 匯入與匯出增加座標、XML 與特殊字元檢查
+- PWA、Backup、說明文件與 cache key 統一為 v1.0.0
+
+不需要移轉 IndexedDB。
+
 
 ## v0.17.2 i18n Stable
 
@@ -98,7 +114,7 @@ iNaturalist autocomplete 會依 UI language 使用：
 ## 目錄
 
 1. [FieldScout 是什麼](#1-fieldscout-是什麼)
-2. [v0.17.0 的核心功能](#2-v0160-的核心功能)
+2. [v1.0.0 的核心功能](#2-v100-的核心功能)
 3. [快速開始](#3-快速開始)
 4. [國家 Workspace](#4-國家-workspace)
 5. [資料來源與地圖](#5-資料來源與地圖)
@@ -142,7 +158,7 @@ FieldScout 是一套以手機操作為優先的 **local-first 生物多樣性野
 
 ---
 
-# 2. v0.17.0 的核心功能
+# 2. v1.0.0 的核心功能
 
 ## 2.1 全球／國家模式
 
@@ -1121,11 +1137,11 @@ README：
 
 部署後可以用：
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0172`
+`https://ychsiao-tw.github.io/FieldScout/?v=100`
 
 確認載入新版。
 
-網址的 `?v=0172` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
+網址的 `?v=100` 只用於避免 Safari 拿舊頁面，不會建立另一份資料。
 
 ## 15.5 不要隨便清 Safari 網站資料
 

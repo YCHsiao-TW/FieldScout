@@ -1,4 +1,4 @@
-# FieldScout v0.17.2
+# FieldScout v1.0.0
 
 > **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**  
 > **以手機為優先的生物多樣性探點、行程規劃、野外導航與採集紀錄工具**
@@ -12,6 +12,13 @@ https://github.com/YCHsiao-TW/FieldScout
 [繁體中文完整說明](README_ZH.md) · [Full English documentation](README_EN.md)
 
 ---
+
+## v1.0.0 — Stable release
+
+The first stable release keeps the v0.17.2 data model and adds release-hardening fixes: reliable offline occurrence-cache fallback, stable map-bounds filtering, valid coordinate handling, non-repeating Trip Point labels beyond Z, localized status labels, correct uncertainty for obscured iNaturalist records, and safer GPX / GeoJSON exports.
+
+No IndexedDB migration is required.
+
 
 ## v0.17.2 i18n Stable
 
@@ -48,7 +55,7 @@ The current release runs as a static PWA on **GitHub Pages**. No Firebase, serve
 
 ---
 
-## v0.17.0 at a glance
+## v1.0.0 at a glance
 
 - **Country-scoped workspaces** — choose Taiwan, another country, or Global at startup.
 - **GBIF + iNaturalist occurrence search** scoped to the selected country.
@@ -88,7 +95,7 @@ When replacing files on GitHub Pages, upload the current release files to the re
 
 After deployment, use a cache-busting URL to confirm the new version:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0172`
+`https://ychsiao-tw.github.io/FieldScout/?v=100`
 
 Do **not** clear Safari site data just to refresh the UI unless you have exported a backup first, because IndexedDB data may be removed.
 

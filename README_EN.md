@@ -1,4 +1,4 @@
-# FieldScout v0.17.2
+# FieldScout v1.0.0
 
 **Mobile-first biodiversity field scouting, trip planning, navigation, and field-recording PWA**
 
@@ -11,6 +11,22 @@ https://github.com/YCHsiao-TW/FieldScout
 [繁體中文 README](README_ZH.md)
 
 ---
+
+## v1.0.0 Stable release
+
+v1.0.0 keeps the v0.17.2 data format and adds release-hardening fixes:
+
+- existing occurrence caches are used when all live sources are unavailable, without overwriting them with empty results
+- current-map-extent filtering no longer triggers repeated auto-fit cycles
+- blank or invalid coordinates are no longer interpreted as `0,0`
+- Trip Point labels continue as `AA`, `AB`… after Z
+- Trip and visit statuses are localized while stored machine values remain unchanged
+- obscured iNaturalist records use their public uncertainty radius
+- GPX and GeoJSON handling validates coordinates, XML, timestamps, and special characters
+- PWA, Backup, documentation, and cache versions are aligned at v1.0.0
+
+No IndexedDB migration is required.
+
 
 ## v0.17.2 i18n Stable
 
@@ -61,7 +77,7 @@ Stored machine values remain language-independent.
 ## Contents
 
 1. [What is FieldScout?](#1-what-is-fieldscout)
-2. [Core features in v0.17.0](#2-core-features-in-v0160)
+2. [Core features in v1.0.0](#2-core-features-in-v100)
 3. [Quick start](#3-quick-start)
 4. [Country-scoped workspaces](#4-country-scoped-workspaces)
 5. [Data sources and basemaps](#5-data-sources-and-basemaps)
@@ -102,7 +118,7 @@ The main pages are:
 
 ---
 
-# 2. Core features in v0.17.0
+# 2. Core features in v1.0.0
 
 ## Country-scoped workspaces
 
@@ -774,9 +790,9 @@ https://ychsiao-tw.github.io/FieldScout/
 
 ## Cache-busting test URL
 
-After deploying v0.16.0:
+After deploying v1.0.0:
 
-`https://ychsiao-tw.github.io/FieldScout/?v=0172`
+`https://ychsiao-tw.github.io/FieldScout/?v=100`
 
 The query string is only for cache busting. It does not create a separate data workspace.
 

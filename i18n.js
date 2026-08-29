@@ -103,6 +103,10 @@ const ZH_TO_EN={
   "無法到達":"Inaccessible",
   "再訪":"Revisit",
   "需要再訪":"Revisit",
+  "◎ 已到達":"◎ Arrived",
+  "✓ 完成調查":"✓ Surveyed",
+  "× 無法到達":"× Inaccessible",
+  "↻ 再訪":"↻ Revisit",
   "Google Maps 導航":"Navigate with Google Maps",
   "＋ 採集紀錄":"+ Field record",
   "← 上一點":"← Previous",
@@ -137,11 +141,13 @@ const ZH_TO_EN={
   "目視觀察":"Visual observation",
   "相機":"Camera",
   "尚未取得 GPS":"GPS not captured",
+  "精度未提供":"Accuracy unavailable",
   "取得現場 GPS":"Capture live GPS",
   "使用行程點 GPS":"Use Trip Point GPS",
   "照片（本機保存於 IndexedDB）":"Photos (stored locally in IndexedDB)",
   "儲存紀錄":"Save record",
   "取消編輯":"Cancel editing",
+  "更新紀錄":"Update record",
   "我的紀錄":"My records",
   "模糊座標 CSV":"Obscured-coordinate CSV",
   "未定名":"Unidentified",
@@ -203,6 +209,7 @@ const ZH_TO_EN={
   "使用中":"Active",
   "儲存名稱":"Save name",
   "尚未建立行程。":"No Trips yet.",
+  "選擇行程":"Select Trip",
 
   // Candidate explanation
   "為什麼推薦？":"Why recommended?",
@@ -266,6 +273,9 @@ function dynamicEnglish(text){
   if((m=s.match(/^(\d+)月$/)))return `${m[1]} mo`;
   if((m=s.match(/^(\d+) 月，共 (\d+) 筆紀錄$/)))return `Month ${m[1]} · ${m[2]} records`;
   if((m=s.match(/^(\d+) 筆$/)))return `${m[1]} records`;
+  if((m=s.match(/^(\d+) \/ (\d+) 筆(?: · 目前地圖範圍)?$/))){
+    return `${m[1]} / ${m[2]} records${s.includes("目前地圖範圍")?" · current map extent":""}`;
+  }
   if((m=s.match(/^(\d+) 筆採集紀錄$/)))return `${m[1]} field records`;
   if((m=s.match(/^(\d+) 個已儲存點位$/)))return `${m[1]} saved points`;
   if((m=s.match(/^(\d+) 個採集目標$/)))return `${m[1]} targets`;
@@ -287,8 +297,27 @@ function dynamicEnglish(text){
   if((m=s.match(/^GPS 已更新：±(\d+) m$/)))return `GPS updated: ±${m[1]} m`;
   if((m=s.match(/^GPS ±(\d+) m$/)))return `GPS ±${m[1]} m`;
   if((m=s.match(/^記錄中 · (\d+) 點 · ±(\d+) m$/)))return `Recording · ${m[1]} points · ±${m[2]} m`;
+  if((m=s.match(/^記錄中 · (\d+) 點$/)))return `Recording · ${m[1]} points`;
   if((m=s.match(/^已停止 · (\d+) 點$/)))return `Stopped · ${m[1]} points`;
+  if((m=s.match(/^已儲存 · (\d+) 點$/)))return `Saved · ${m[1]} points`;
   if((m=s.match(/^(\d+) 點 · ±(\d+) m$/)))return `${m[1]} points · ±${m[2]} m`;
+  if((m=s.match(/^(\d+) 個採集目標 · 依目前排列順序導航$/)))return `${m[1]} targets · navigate in the current order`;
+  if((m=s.match(/^FieldScout 直線路徑估計：([\d.]+) km$/)))return `FieldScout straight-line estimate: ${m[1]} km`;
+  if((m=s.match(/^加入：(.+)$/)))return `Add to: ${m[1]}`;
+  if((m=s.match(/^座標來源：(.+)$/)))return `Coordinate source: ${m[1]}`;
+
+  if(s.startsWith("QC：")){
+    const issueMap={
+      "缺標本／紀錄號":"Missing specimen / record ID",
+      "缺 GPS":"Missing GPS",
+      "GPS 座標無效":"Invalid GPS coordinate",
+      "GPS 誤差 > 1000 m":"GPS uncertainty > 1000 m",
+      "座標可能不在臺灣":"Coordinate may be outside Taiwan",
+      "標本／紀錄號重複":"Duplicate specimen / record ID",
+      "數量異常":"Invalid count"
+    };
+    return "QC: "+s.slice(3).split("；").map(x=>issueMap[x]||x).join("; ");
+  }
 
   // Common runtime messages with user/data substitutions.
   const patterns=[
@@ -300,6 +329,9 @@ function dynamicEnglish(text){
     [/^已儲存「(.+)」並加入行程。$/,m=>`Saved “${m[1]}” and added it to the Trip.`],
     [/^已刪除自訂點「(.+)」，Trip 快照已保留。$/,m=>`Deleted Custom Point “${m[1]}”; existing Trip snapshots were preserved.`],
     [/^已將「(.+)」加入目前行程。$/,m=>`Added “${m[1]}” to the current Trip.`],
+    [/^已加入「(.+)」→ (.+)（目前 (\d+) 點）。$/,m=>`Added “${m[1]}” to ${m[2]} (${m[3]} points).`],
+    [/^已加入 (\d+) 點至「(.+)」(?:；略過 (\d+) 筆重複／無效點)?。$/,m=>`Added ${m[1]} points to “${m[2]}”${m[3]?`; skipped ${m[3]} duplicate or invalid points`:""}.`],
+    [/^已套用 (\d+) 月篩選。再次點同月份可取消。$/,m=>`Month ${m[1]} filter applied. Tap the same month again to clear it.`],
     [/^「(.+)」已在行程「(.+)」中。$/,m=>`“${m[1]}” is already in Trip “${m[2]}”.`],
     [/^已使用行程點「(.+)」的座標。$/,m=>`Using coordinates from Trip Point “${m[1]}”.`],
     [/^採集紀錄已儲存並綁定「(.+)」。$/,m=>`Field record saved and linked to “${m[1]}”.`],
@@ -311,6 +343,11 @@ function dynamicEnglish(text){
     [/^目前無法連線，已載入 (.+) 快取的 (\d+) 筆紀錄。$/,m=>`Offline: loaded ${m[2]} cached records from ${m[1]}.`],
     [/^搜尋失敗，且此物種尚無本機快取：(.*)$/,m=>`Search failed and no local cache exists for this taxon: ${m[1]}`],
     [/^路線最佳化失敗：(.*)$/,m=>`Route optimization failed: ${m[1]}`],
+    [/^路線排序失敗：(.*)$/,m=>`Route sorting failed: ${m[1]}`],
+    [/^加入行程失敗：(.*)$/,m=>`Could not add to Trip: ${m[1]}`],
+    [/^全部加入失敗：(.*)$/,m=>`Could not add all points: ${m[1]}`],
+    [/^無法開啟本機資料：(.*)$/,m=>`Unable to open local data: ${m[1]}`],
+    [/^還原失敗：(.*)$/,m=>`Restore failed: ${m[1]}`],
     [/^已用最近鄰 heuristic 重排：估計直線路徑 ([\d.]+) → ([\d.]+) km。Google Maps 仍會依道路重新導航。$/,m=>`Reordered with nearest-neighbor heuristic: estimated straight-line path ${m[1]} → ${m[2]} km. Google Maps will still route by roads.`],
     [/^GPX 已匯入 (\d+) 個 waypoint。$/,m=>`Imported ${m[1]} GPX waypoints.`],
     [/^GPX 匯入失敗：(.*)$/,m=>`GPX import failed: ${m[1]}`],
@@ -340,12 +377,16 @@ function dynamicEnglish(text){
     "請先選擇一個行程採集點。":"Select a Trip Point first.",
     "此裝置不支援 GPS。":"GPS is not supported on this device.",
     "此裝置不支援 GPS Track。":"GPS Track is not supported on this device.",
+    "請先停止 GPS Track 再切換或刪除行程。":"Stop GPS Track before switching or deleting Trips.",
     "正在記錄…":"Recording…",
     "採集紀錄已儲存。":"Field record saved.",
     "編號設定已儲存。":"Numbering settings saved.",
     "Backup 還原完成。":"Backup restored.",
     "請輸入點位名稱。":"Enter a point name.",
     "請提供有效經緯度。":"Enter valid latitude and longitude.",
+    "地圖尚未載入，無法使用地圖中心。":"The map is not loaded, so its center is unavailable.",
+    "地圖尚未載入，無法使用地圖選點。":"The map is not loaded, so map selection is unavailable.",
+    "座標模糊半徑必須是大於 0 的數字。":"The coordinate-obscuring radius must be a number greater than 0.",
     "無法辨識座標，請使用「緯度, 經度」。":"Could not parse coordinates. Use “latitude, longitude”.",
     "地圖選點：點地圖或拖曳 marker，完成後按「完成」。":"Map selection: tap the map or drag the marker, then press Done.",
     "這個行程的所有採集目標都已完成／標記無法到達。":"All targets in this Trip are completed or marked inaccessible.",
@@ -473,7 +514,7 @@ export function initI18n(lang){
   applyTranslations(document);
 }
 
-// v0.17.2 intentionally avoids MutationObserver.
+// v1.0.0 intentionally avoids MutationObserver.
 // Dynamic UI is translated explicitly after each rendering step.
 
 export function t(key,fallback=""){

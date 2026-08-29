@@ -70,18 +70,59 @@ export function downloadText(name,type,text){
 export function csvEscape(v){return `"${String(v??"").replaceAll('"','""')}"`}
 export function toCSV(rows){return "\ufeff"+rows.map(r=>r.map(csvEscape).join(",")).join("\n")}
 export function geojsonPoints(items,propsFn){
-  return {type:"FeatureCollection",features:items.map(x=>({type:"Feature",geometry:x.lat!=null&&x.lon!=null?{type:"Point",coordinates:[+x.lon,+x.lat]}:null,properties:propsFn(x)}))}
+  return {
+    type:"FeatureCollection",
+    features:items.map(x=>{
+      const lat=Number(x.lat),lon=Number(x.lon);
+      const hasPoint=
+        x.lat!==null&&x.lat!==undefined&&x.lon!==null&&x.lon!==undefined&&
+        String(x.lat).trim()!==""&&String(x.lon).trim()!==""&&
+        Number.isFinite(lat)&&Number.isFinite(lon)&&
+        lat>=-90&&lat<=90&&lon>=-180&&lon<=180;
+      return {
+        type:"Feature",
+        geometry:hasPoint?{type:"Point",coordinates:[lon,lat]}:null,
+        properties:propsFn(x)
+      };
+    })
+  };
 }
+const xmlEscape=s=>String(s??"").replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
 export function gpxWaypoints(points,name="FieldScout Trip"){
-  const xe=s=>String(s??"").replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
-  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>${xe(name)}</name></metadata>${points.map(p=>`<wpt lat="${p.lat}" lon="${p.lon}"><name>${xe(p.name||"Point")}</name></wpt>`).join("")}</gpx>`;
+  const valid=(points||[]).filter(p=>{
+    const lat=Number(p?.lat),lon=Number(p?.lon);
+    return p?.lat!==null&&p?.lat!==undefined&&p?.lon!==null&&p?.lon!==undefined&&
+      String(p.lat).trim()!==""&&String(p.lon).trim()!==""&&
+      Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180;
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>${xmlEscape(name)}</name></metadata>${valid.map(p=>`<wpt lat="${Number(p.lat)}" lon="${Number(p.lon)}"><name>${xmlEscape(p.name||"Point")}</name></wpt>`).join("")}</gpx>`;
 }
 export function gpxTrack(points,name="FieldScout Track"){
-  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${name}</name><trkseg>${points.map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.time).toISOString()}</time></trkpt>`).join("")}</trkseg></trk></gpx>`;
+  const valid=(points||[]).filter(p=>{
+    const lat=Number(p?.lat),lon=Number(p?.lon),time=new Date(p?.time).getTime();
+    return p?.lat!==null&&p?.lat!==undefined&&p?.lon!==null&&p?.lon!==undefined&&
+      p?.time!==null&&p?.time!==undefined&&String(p.time).trim()!==""&&
+      String(p.lat).trim()!==""&&String(p.lon).trim()!==""&&
+      Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180&&Number.isFinite(time);
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${xmlEscape(name)}</name><trkseg>${valid.map(p=>`<trkpt lat="${Number(p.lat)}" lon="${Number(p.lon)}"><time>${new Date(p.time).toISOString()}</time></trkpt>`).join("")}</trkseg></trk></gpx>`;
 }
 export function parseGpx(text){
   const d=new DOMParser().parseFromString(text,"application/xml");
-  return [...d.querySelectorAll("wpt")].map((n,i)=>({id:crypto.randomUUID(),name:n.querySelector("name")?.textContent||`GPX ${i+1}`,lat:+n.getAttribute("lat"),lon:+n.getAttribute("lon"),source:"GPX",visitStatus:"unvisited"})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  if(d.querySelector("parsererror"))throw new Error("GPX XML 格式無效");
+  return [...d.querySelectorAll("wpt")].map((n,i)=>{
+    const latText=n.getAttribute("lat"),lonText=n.getAttribute("lon");
+    const lat=latText==null||latText.trim()===""?NaN:Number(latText);
+    const lon=lonText==null||lonText.trim()===""?NaN:Number(lonText);
+    return {
+      id:crypto.randomUUID(),
+      name:n.querySelector("name")?.textContent||`GPX ${i+1}`,
+      lat,lon,source:"GPX",visitStatus:"unvisited"
+    };
+  }).filter(p=>
+    Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&
+    p.lat>=-90&&p.lat<=90&&p.lon>=-180&&p.lon<=180
+  );
 }
 export async function sanitizeImage(file){
   const bmp=await createImageBitmap(file),max=1600,s=Math.min(1,max/Math.max(bmp.width,bmp.height));
@@ -97,7 +138,11 @@ export function obscurePoint(lat,lon,radiusM=1000,seed=""){
 export function qcRecord(r,records,countryCode=""){
   const issues=[];
   if(!r.specimenId)issues.push("缺標本／紀錄號");
-  if(r.lat==null||r.lon==null)issues.push("缺 GPS");
+  if(r.lat==null||r.lon==null||String(r.lat).trim()===""||String(r.lon).trim()==="")issues.push("缺 GPS");
+  else if(
+    !Number.isFinite(Number(r.lat))||!Number.isFinite(Number(r.lon))||
+    Number(r.lat)<-90||Number(r.lat)>90||Number(r.lon)<-180||Number(r.lon)>180
+  )issues.push("GPS 座標無效");
   if(r.accuracyM!=null&&r.accuracyM>1000)issues.push("GPS 誤差 > 1000 m");
 
   // Preserve the useful Taiwan boundary check for Taiwan workspaces,

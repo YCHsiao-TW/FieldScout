@@ -60,6 +60,7 @@ function normalizeGBIF(r){
   const lat=n(r.decimalLatitude),lon=n(r.decimalLongitude);
   if(lat==null||lon==null)return null;
   const imgs=mediaUrls(r.media);
+  const generalized=Boolean(r.dataGeneralizations||r.informationWithheld);
 
   return {
     id:`gbif:${r.key}`,
@@ -77,10 +78,14 @@ function normalizeGBIF(r){
     sourceUrls:r.key?[`https://www.gbif.org/occurrence/${r.key}`]:[],
     datasetUUID:r.datasetKey||"",
     datasetName:r.datasetTitle||"",
-    datasetURL:"",
+    datasetURL:r.datasetKey?`https://www.gbif.org/dataset/${r.datasetKey}`:"",
+    datasetAuthor:r.institutionCode||r.collectionCode||"",
+    recordedBy:Array.isArray(r.recordedBy)?r.recordedBy.join("; "):(r.recordedBy||""),
+    identificationVerificationStatus:r.identificationVerificationStatus||"",
+    minimumElevationM:n(r.minimumElevationInMeters),
     license:r.license||"",
-    sensitiveCategory:"",
-    dataGeneralizations:false
+    sensitiveCategory:r.dataGeneralizations?"generalized":r.informationWithheld?"withheld":"",
+    dataGeneralizations:generalized
   };
 }
 
@@ -98,7 +103,12 @@ function normalizeINat(o){
     locality:o.place_guess||"",
     eventDate:o.observed_on||o.time_observed_at||"",
     lat,lon,
-    uncertaintyM:n(o.positional_accuracy),
+    // Obscured observations must use the public uncertainty radius. Using the
+    // original positional_accuracy would overstate precision for the displayed
+    // generalized coordinate and distort candidate ranking.
+    uncertaintyM:n(o.obscured
+      ? (o.public_positional_accuracy??o.positional_accuracy)
+      : o.positional_accuracy),
     basisOfRecord:"OBSERVATION",
     hasPhoto:imgs.length>0,
     imageUrls:imgs.slice(0,6),
@@ -109,7 +119,7 @@ function normalizeINat(o){
     datasetName:"iNaturalist",
     datasetURL:"https://www.inaturalist.org/",
     license:o.license_code||"",
-    sensitiveCategory:o.obscured?"obscured":"",
+    sensitiveCategory:o.geoprivacy||(o.obscured?"obscured":""),
     dataGeneralizations:Boolean(o.obscured)
   };
 }
@@ -136,6 +146,9 @@ function merge(records){
     x.imageUrls=[...new Set([...(x.imageUrls||[]),...(r.imageUrls||[])])].slice(0,6);
     x.hasPhoto=x.imageUrls.length>0||x.hasPhoto||r.hasPhoto;
     x.dataGeneralizations=x.dataGeneralizations||r.dataGeneralizations;
+    x.mediaLicense=[...new Set(
+      [x.mediaLicense,r.mediaLicense].filter(Boolean).flatMap(v=>String(v).split("; ").filter(Boolean))
+    )].join("; ");
 
     if((r.uncertaintyM??Infinity)<(x.uncertaintyM??Infinity)){
       x.uncertaintyM=r.uncertaintyM;
@@ -144,6 +157,8 @@ function merge(records){
     if(!x.commonName&&r.commonName)x.commonName=r.commonName;
     if(!x.datasetName&&r.datasetName)x.datasetName=r.datasetName;
     if(!x.datasetUUID&&r.datasetUUID)x.datasetUUID=r.datasetUUID;
+    if(!x.datasetURL&&r.datasetURL)x.datasetURL=r.datasetURL;
+    if(!x.sensitiveCategory&&r.sensitiveCategory)x.sensitiveCategory=r.sensitiveCategory;
     if(!x.license&&r.license)x.license=r.license;
   }
 

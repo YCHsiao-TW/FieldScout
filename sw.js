@@ -1,8 +1,8 @@
-const CACHE="fieldscout-v0.17.2-shell";
+const CACHE="fieldscout-v1.0.0-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=0.17.2","./db.js?v=0.17.2","./utils.js?v=0.17.2",
-  "./api.js?v=0.17.2","./ranking.js?v=0.17.2","./i18n.js?v=0.17.2",
+  "./app.js?v=1.0.0","./db.js?v=1.0.0","./utils.js?v=1.0.0",
+  "./api.js?v=1.0.0","./ranking.js?v=1.0.0","./i18n.js?v=1.0.0",
   "./manifest.webmanifest"
 ];
 
@@ -46,6 +46,7 @@ self.addEventListener("fetch",e=>{
     e.respondWith(
       fetch(req)
         .then(r=>{
+          if(!r.ok)throw new Error(`Navigation HTTP ${r.status}`);
           const copy=r.clone();
           caches.open(CACHE).then(c=>c.put("./index.html",copy));
           return r;
@@ -63,6 +64,7 @@ self.addEventListener("fetch",e=>{
       e.respondWith(
         fetch(req)
           .then(r=>{
+            if(!r.ok)throw new Error(`Asset HTTP ${r.status}`);
             const copy=r.clone();
             caches.open(CACHE).then(c=>c.put(req,copy));
             return r;
@@ -75,6 +77,7 @@ self.addEventListener("fetch",e=>{
     e.respondWith(
       caches.match(req).then(cached=>
         cached||fetch(req).then(r=>{
+          if(!r.ok)return r;
           const copy=r.clone();
           caches.open(CACHE).then(c=>c.put(req,copy));
           return r;
