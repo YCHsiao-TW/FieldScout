@@ -20,18 +20,6 @@ The first stable release keeps the v0.17.2 data model and adds release-hardening
 No IndexedDB migration is required.
 
 
-## v0.17.2 i18n Stable
-
-Removes the MutationObserver-based translation system entirely. Language switching now uses explicit, targeted translation after UI rendering for better iOS Safari stability.
-
-
-## v0.17.1 i18n Hotfix
-
-Fixes an iOS Safari language-switch freeze caused by the translation MutationObserver repeatedly observing and rewriting its own DOM changes. Language switching now avoids redundant DOM writes and uses a guarded, lower-cost update path.
-
-
-## v0.17.0 — Bilingual UI
-
 FieldScout now supports **Traditional Chinese / English** in the same application.
 
 - language is independent from the selected country
