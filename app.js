@@ -1,12 +1,13 @@
-import {put,putManyAtomic,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.1.0";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.1.0";
-import {taxonomy,occurrences,mergeOccurrences} from "./api.js?v=1.1.0";
-import {rankCandidates} from "./ranking.js?v=1.1.0";
-import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.1.0";
-import {BACKUP_IMAGE_TYPES,BACKUP_MAX_BYTES,BACKUP_PHOTO_MAX_BYTES,validateBackupDocument} from "./backup.js?v=1.1.0";
+import {put,putManyAtomic,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.1.1";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.1.1";
+import {taxonomy,occurrences,mergeOccurrences} from "./api.js?v=1.1.1";
+import {rankCandidates} from "./ranking.js?v=1.1.1";
+import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.1.1";
+import {BACKUP_IMAGE_TYPES,BACKUP_MAX_BYTES,BACKUP_PHOTO_MAX_BYTES,validateBackupDocument} from "./backup.js?v=1.1.1";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const RESULT_BATCH_SIZE=200;
+const MAP_MARKER_BATCH_SIZE=500;
 
 const COUNTRIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AS","American Samoa"],["AD","Andorra"],["AO","Angola"],["AI","Anguilla"],["AQ","Antarctica"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AW","Aruba"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BM","Bermuda"],["BT","Bhutan"],["BO","Bolivia"],["BQ","Bonaire, Sint Eustatius and Saba"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BV","Bouvet Island"],["BR","Brazil"],["IO","British Indian Ocean Territory"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["KY","Cayman Islands"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CX","Christmas Island"],["CC","Cocos (Keeling) Islands"],["CO","Colombia"],["KM","Comoros"],["CK","Cook Islands"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CW","Curaçao"],["CY","Cyprus"],["CZ","Czechia"],["CI","Côte d'Ivoire"],["CD","Democratic Republic of the Congo"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FK","Falkland Islands (Malvinas)"],["FO","Faroe Islands"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GF","French Guiana"],["PF","French Polynesia"],["TF","French Southern Territories"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GI","Gibraltar"],["GR","Greece"],["GL","Greenland"],["GD","Grenada"],["GP","Guadeloupe"],["GU","Guam"],["GT","Guatemala"],["GG","Guernsey"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HM","Heard Island and McDonald Islands"],["HN","Honduras"],["HK","Hong Kong"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IM","Isle of Man"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JE","Jersey"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MO","Macao"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MQ","Martinique"],["MR","Mauritania"],["MU","Mauritius"],["YT","Mayotte"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MS","Montserrat"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NC","New Caledonia"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NU","Niue"],["NF","Norfolk Island"],["KP","North Korea"],["MK","North Macedonia"],["MP","Northern Mariana Islands"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PN","Pitcairn"],["PL","Poland"],["PT","Portugal"],["PR","Puerto Rico"],["QA","Qatar"],["CG","Republic of the Congo"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["RE","Réunion"],["BL","Saint Barthélemy"],["SH","Saint Helena, Ascension and Tristan da Cunha"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["MF","Saint Martin (French part)"],["PM","Saint Pierre and Miquelon"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SX","Sint Maarten (Dutch part)"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["GS","South Georgia and the South Sandwich Islands"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SJ","Svalbard and Jan Mayen"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TK","Tokelau"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TM","Turkmenistan"],["TC","Turks and Caicos Islands"],["TV","Tuvalu"],["TR","Türkiye"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UM","United States Minor Outlying Islands"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["VG","Virgin Islands, British"],["VI","Virgin Islands, U.S."],["WF","Wallis and Futuna"],["EH","Western Sahara"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"],["AX","Åland Islands"]];
 const countryDisplayNamesCache=new Map();
@@ -61,7 +62,9 @@ const state={
   tripMarkerMap:new Map(),
   fieldModeIndex:0,fieldModeReturn:false,
   customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null,
-  searchAbort:null,searchProgress:{},resultVisibleLimit:RESULT_BATCH_SIZE
+  searchAbort:null,searchProgress:{},resultVisibleLimit:RESULT_BATCH_SIZE,
+  markerRenderGeneration:0,markerRenderHandle:null,markerRenderedCount:0,
+  resultLoadMoreObserver:null
 };
 const translateRoot=root=>{if(root)applyTranslations(root)};
 const setStatus=text=>{
@@ -348,6 +351,12 @@ function setupStatic(){
   $("#searchBtn").onclick=searchTaxon;
   $("#searchCancelBtn").onclick=cancelOccurrenceSearch;
   $("#resultLoadMoreBtn").onclick=loadMoreOccurrences;
+  if("IntersectionObserver" in window){
+    state.resultLoadMoreObserver=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting))loadMoreOccurrences();
+    },{root:$("#contentPane"),rootMargin:"350px 0px"});
+    state.resultLoadMoreObserver.observe($("#resultLoadMoreBtn"));
+  }
   $("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
   let at=null;$("#taxonInput").addEventListener("input",()=>{clearTimeout(at);const q=$("#taxonInput").value.trim();if(q.length<2){$("#autocomplete").classList.add("hidden");return}at=setTimeout(()=>autocomplete(q),250)});
   $("#applyFiltersBtn").onclick=applyFilters;
@@ -574,7 +583,7 @@ function restoreSearchSnapshot(snapshot){
       state.filtered.length,
       Math.max(RESULT_BATCH_SIZE,previousVisibleLimit)
     );
-    renderOccurrences();
+    renderOccurrenceList();
   }
 }
 
@@ -856,47 +865,143 @@ function resetFilters(){
   $("#filterMapBounds").checked=false;
   applyFilters();
 }
-function renderOccurrences(){
+function cancelMarkerRender(){
+  state.markerRenderGeneration++;
+  const pending=state.markerRenderHandle;
+  if(!pending)return;
+
+  if(pending.type==="idle"&&typeof window.cancelIdleCallback==="function"){
+    window.cancelIdleCallback(pending.id);
+  }else{
+    clearTimeout(pending.id);
+  }
+  state.markerRenderHandle=null;
+}
+
+function scheduleMarkerRender(task){
+  if(typeof window.requestIdleCallback==="function"){
+    const id=window.requestIdleCallback(task,{timeout:80});
+    state.markerRenderHandle={type:"idle",id};
+  }else{
+    const id=setTimeout(()=>task(null),0);
+    state.markerRenderHandle={type:"timeout",id};
+  }
+}
+
+function occurrencePopupHtml(r){
+  const popupImage=(r.imageUrls||[])[0];
+  return `
+    ${popupImage?`<img src="${esc(popupImage)}" alt="" style="width:110px;height:82px;object-fit:cover;border-radius:8px;margin-bottom:7px;display:block">`:""}
+    <b>${esc(r.commonName||r.scientificName)}</b><br>
+    <span class="meta"><i>${esc(r.scientificName||"")}</i><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join(" + "))}</span>
+    <div class="popup-actions">
+      <a class="popup-nav" href="${googleMapsUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
+      <button type="button" data-popup-add>加入行程</button>
+    </div>`;
+}
+
+function ensureOccurrencePopup(marker,record){
+  if(!marker.getPopup?.())marker.bindPopup(occurrencePopupHtml(record));
+}
+
+function createOccurrenceMarker(r){
+  const lat=Number(r.lat),lon=Number(r.lon);
+  if(
+    !Number.isFinite(lat)||!Number.isFinite(lon)||
+    lat<-90||lat>90||lon<-180||lon>180
+  )return null;
+
+  const icon=L.divIcon({
+    className:`occ-marker-wrap ${state.selectedOccurrenceId===r.id?"selected-occ-marker":""}`,
+    html:`<span class="occ-marker-dot"></span>`,
+    iconSize:[18,18],
+    iconAnchor:[9,9]
+  });
+  const marker=L.marker([lat,lon],{icon});
+  marker.on("click",()=>{
+    ensureOccurrencePopup(marker,r);
+    selectOccurrence(r.id,true);
+    marker.openPopup();
+  });
+  marker.on("popupopen",event=>{
+    const button=event.popup.getElement()?.querySelector("[data-popup-add]");
+    if(button)button.onclick=()=>addToTrip(r);
+  });
+  return marker;
+}
+
+function updateOccurrenceResultMeta(){
+  const filteredCount=state.filtered.length;
+  const listCount=Math.min(filteredCount,state.resultVisibleLimit);
+  const mapCount=Math.min(filteredCount,state.markerRenderedCount);
+  const mapBounds=$("#filterMapBounds")?.checked&&state.map;
+  $("#resultMeta").textContent=
+    `${filteredCount} / ${state.allRecords.length} 筆 · 地圖已載入 ${mapCount} / ${filteredCount} · 清單顯示 ${listCount} / ${filteredCount}`+
+    `${mapBounds?" · 目前地圖範圍":""}`;
+  translateRoot($("#resultMeta"));
+}
+
+function renderOccurrenceMap(records=state.filtered){
+  cancelMarkerRender();
   if(state.cluster)state.cluster.clearLayers();
   state.markerMap.clear();
-  const bounds=[];
+  state.markerRenderedCount=0;
+  updateOccurrenceResultMeta();
+
+  if(!window.L||!state.cluster||!records.length)return;
+
+  // Fit to the complete filtered result set before progressively adding
+  // markers. This keeps the geographic extent truthful without allocating a
+  // second large array of coordinate pairs.
+  if(state.map&&!$("#filterMapBounds")?.checked){
+    let minLat=Infinity,maxLat=-Infinity,minLon=Infinity,maxLon=-Infinity;
+    for(const record of records){
+      const lat=Number(record.lat),lon=Number(record.lon);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+      minLat=Math.min(minLat,lat);maxLat=Math.max(maxLat,lat);
+      minLon=Math.min(minLon,lon);maxLon=Math.max(maxLon,lon);
+    }
+    if(Number.isFinite(minLat)&&Number.isFinite(minLon)){
+      state.map.fitBounds([[minLat,minLon],[maxLat,maxLon]],{padding:[20,20],maxZoom:12});
+    }
+  }
+
+  const generation=state.markerRenderGeneration;
+  let index=0;
+  const addBatch=deadline=>{
+    if(generation!==state.markerRenderGeneration)return;
+    state.markerRenderHandle=null;
+    const markers=[];
+    let processed=0;
+
+    while(index<records.length&&processed<MAP_MARKER_BATCH_SIZE){
+      if(deadline&&processed>=50&&deadline.timeRemaining()<2&&!deadline.didTimeout)break;
+      const record=records[index++];
+      const marker=createOccurrenceMarker(record);
+      if(marker){
+        state.markerMap.set(record.id,marker);
+        markers.push(marker);
+      }
+      processed++;
+    }
+
+    if(typeof state.cluster.addLayers==="function"){
+      state.cluster.addLayers(markers);
+    }else{
+      for(const marker of markers)marker.addTo(state.cluster);
+    }
+    state.markerRenderedCount+=markers.length;
+    updateOccurrenceResultMeta();
+
+    if(index<records.length&&generation===state.markerRenderGeneration){
+      scheduleMarkerRender(addBatch);
+    }
+  };
+  scheduleMarkerRender(addBatch);
+}
+
+function renderOccurrenceList(){
   const visible=state.filtered.slice(0,state.resultVisibleLimit);
-
-  for(const r of visible){
-    if(!window.L||!state.cluster)break;
-    const icon=L.divIcon({
-      className:`occ-marker-wrap ${state.selectedOccurrenceId===r.id?"selected-occ-marker":""}`,
-      html:`<span class="occ-marker-dot"></span>`,
-      iconSize:[18,18],
-      iconAnchor:[9,9]
-    });
-    const popupImage=(r.imageUrls||[])[0];
-    const popupHtml=`
-      ${popupImage?`<img src="${esc(popupImage)}" alt="" style="width:110px;height:82px;object-fit:cover;border-radius:8px;margin-bottom:7px;display:block">`:""}
-      <b>${esc(r.commonName||r.scientificName)}</b><br>
-      <span class="meta"><i>${esc(r.scientificName||"")}</i><br>${esc(r.locality||"")}<br>${esc(r.eventDate||"")}<br>${esc((r.sources||[]).join(" + "))}</span>
-      <div class="popup-actions">
-        <a class="popup-nav" href="${googleMapsUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
-        <button type="button" data-popup-add>加入行程</button>
-      </div>`;
-    const m=L.marker([r.lat,r.lon],{icon}).bindPopup(popupHtml);
-    m.on("click",()=>selectOccurrence(r.id,true));
-    m.on("popupopen",e=>{
-      const btn=e.popup.getElement()?.querySelector("[data-popup-add]");
-      if(btn)btn.onclick=()=>addToTrip(r);
-    });
-    m.addTo(state.cluster);
-    state.markerMap.set(r.id,m);
-    bounds.push([r.lat,r.lon]);
-  }
-
-  // Preserve the user's viewport while filtering by the current map bounds.
-  // Fitting the filtered markers here would fire moveend and re-run the same
-  // filter repeatedly.
-  if(bounds.length&&state.map&&!$("#filterMapBounds")?.checked){
-    state.map.fitBounds(bounds,{padding:[20,20],maxZoom:12});
-  }
-
   $("#resultList").innerHTML=visible.length
     ? visible.map((r,i)=>{
         const img=(r.imageUrls||[])[0];
@@ -930,7 +1035,11 @@ function renderOccurrences(){
     const r=visible[+b.dataset.focus];
     if(state.map)state.map.setView([r.lat,r.lon],16);
     selectOccurrence(r.id,false);
-    state.markerMap.get(r.id)?.openPopup();
+    const marker=state.markerMap.get(r.id);
+    if(marker){
+      ensureOccurrencePopup(marker,r);
+      marker.openPopup();
+    }
   });
   $$("[data-detail]").forEach(b=>b.onclick=()=>showOccurrenceDetail(visible[+b.dataset.detail]));
   $$("[data-add]").forEach(b=>b.onclick=()=>addToTrip(visible[+b.dataset.add]));
@@ -944,14 +1053,18 @@ function renderOccurrences(){
   }
   const loadMore=$("#resultLoadMoreBtn");
   if(loadMore)loadMore.classList.toggle("hidden",visible.length>=state.filtered.length);
-  const mapBounds=$("#filterMapBounds")?.checked&&state.map;
-  $("#resultMeta").textContent=
-    `${state.filtered.length} / ${state.allRecords.length} 筆 · 目前顯示 ${visible.length}`+
-    `${mapBounds?" · 目前地圖範圍":""}`;
-  applyOccurrenceSelection();
-  translateRoot($("#resultMeta"));
+  updateOccurrenceResultMeta();
+  applyOccurrenceListSelection();
   translateRoot(loadMore);
   translateRoot($("#resultList"));
+}
+
+function renderOccurrences(){
+  if(state.selectedOccurrenceId&&!state.filtered.some(r=>r.id===state.selectedOccurrenceId)){
+    state.selectedOccurrenceId=null;
+  }
+  renderOccurrenceMap();
+  renderOccurrenceList();
 }
 
 function loadMoreOccurrences(){
@@ -960,7 +1073,7 @@ function loadMoreOccurrences(){
     state.filtered.length,
     state.resultVisibleLimit+RESULT_BATCH_SIZE
   );
-  renderOccurrences();
+  renderOccurrenceList();
 }
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
@@ -1003,10 +1116,14 @@ function linkToCard(id){
   selectOccurrence(id,true);
 }
 
-function applyOccurrenceSelection(){
+function applyOccurrenceListSelection(){
   document.querySelectorAll("[data-card]").forEach(card=>{
     card.classList.toggle("selected",card.dataset.card===state.selectedOccurrenceId);
   });
+}
+
+function applyOccurrenceSelection(){
+  applyOccurrenceListSelection();
 
   for(const [id,marker] of state.markerMap.entries()){
     const el=marker.getElement?.();
@@ -3042,7 +3159,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"1.1.0",
+      version:"1.1.1",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,

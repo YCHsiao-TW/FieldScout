@@ -1,4 +1,4 @@
-# FieldScout v1.1.0
+# FieldScout v1.1.1
 
 FieldScout is a mobile-first, local-first biodiversity fieldwork PWA that connects data exploration, site scouting, Trip planning, navigation, and field records in one application.
 
@@ -80,7 +80,7 @@ Filters include:
 
 Sort by nearest distance, newest, oldest, best coordinate precision, or multi-source support. A 12-month chart displays record counts and can apply or clear a month filter; it does not represent biological abundance.
 
-Map markers and occurrence cards remain synchronized and selected. To keep phones responsive, the list and map render 200 records at a time behind a Load more control; filters, monthly counts, candidate ranking, bulk Trip addition, and CSV/GeoJSON exports still use the complete loaded result set. The detail view exposes source images, metadata, licenses, sensitive-data flags, original records, and Google Maps.
+Map markers and occurrence cards remain synchronized and selected. The map progressively adds every filtered point in background batches instead of stopping at 200. To keep phones responsive, the list builds 200 cards at a time and loads the next batch near the bottom or through the Load more list records button. Separate map and list counts make their progress explicit; filters, monthly counts, candidate ranking, bulk Trip addition, and CSV/GeoJSON exports still use the complete loaded result set. The detail view exposes source images, metadata, licenses, sensitive-data flags, original records, and Google Maps.
 
 ## Candidate-site ranking
 

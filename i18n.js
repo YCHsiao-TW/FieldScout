@@ -60,7 +60,7 @@ const ZH_TO_EN={
   "尚未搜尋":"Not searched yet",
   "選取後會保持高亮，直到選擇另一個點":"Selection remains highlighted until another point is selected.",
   "全部加入行程":"Add all to Trip",
-  "載入更多紀錄":"Load more records",
+  "載入更多清單紀錄":"Load more list records",
 
   // Trips
   "整理採集目標、排序路線與準備野外工作。":"Organize targets, order routes, and prepare fieldwork.",
@@ -277,6 +277,9 @@ function dynamicEnglish(text){
   if((m=s.match(/^(\d+) 筆$/)))return `${m[1]} records`;
   if((m=s.match(/^(\d+) \/ (\d+) 筆 · 目前顯示 (\d+)(?: · 目前地圖範圍)?$/))){
     return `${m[1]} / ${m[2]} records · showing ${m[3]}${s.includes("目前地圖範圍")?" · current map extent":""}`;
+  }
+  if((m=s.match(/^(\d+) \/ (\d+) 筆 · 地圖已載入 (\d+) \/ (\d+) · 清單顯示 (\d+) \/ (\d+)(?: · 目前地圖範圍)?$/))){
+    return `${m[1]} / ${m[2]} records · map ${m[3]} / ${m[4]} loaded · list ${m[5]} / ${m[6]} shown${s.includes("目前地圖範圍")?" · current map extent":""}`;
   }
   if((m=s.match(/^(\d+) \/ (\d+) 筆(?: · 目前地圖範圍)?$/))){
     return `${m[1]} / ${m[2]} records${s.includes("目前地圖範圍")?" · current map extent":""}`;

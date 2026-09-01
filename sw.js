@@ -1,10 +1,10 @@
 const CACHE_PREFIX="fieldscout-";
-const CACHE="fieldscout-v1.1.0-shell";
+const CACHE="fieldscout-v1.1.1-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=1.1.0","./db.js?v=1.1.0","./utils.js?v=1.1.0",
-  "./api.js?v=1.1.0","./ranking.js?v=1.1.0","./i18n.js?v=1.1.0",
-  "./backup.js?v=1.1.0",
+  "./app.js?v=1.1.1","./db.js?v=1.1.1","./utils.js?v=1.1.1",
+  "./api.js?v=1.1.1","./ranking.js?v=1.1.1","./i18n.js?v=1.1.1",
+  "./backup.js?v=1.1.1",
   "./manifest.webmanifest"
 ];
 

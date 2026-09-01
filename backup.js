@@ -4,7 +4,7 @@ export const BACKUP_IMAGE_TYPES=new Set([
   "image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"
 ]);
 
-const BACKUP_VERSIONS=new Set(["0.17.0","0.17.1","0.17.2","1.0.0","1.0.1","1.1.0"]);
+const BACKUP_VERSIONS=new Set(["0.17.0","0.17.1","0.17.2","1.0.0","1.0.1","1.1.0","1.1.1"]);
 
 function isPlainObject(value){
   return value!==null&&typeof value==="object"&&!Array.isArray(value);
