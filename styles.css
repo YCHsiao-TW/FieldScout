@@ -43,7 +43,7 @@ textarea{resize:vertical}
 .map-tools select{width:auto;background:rgba(255,255,255,.94)}
 .content-pane{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px max(24px,env(safe-area-inset-bottom))}
 .status{font-size:12px;color:#334155;background:#eef2f7;border:1px solid #dbe2ea;border-radius:10px;padding:7px 9px;margin-bottom:9px}
-.search-row{display:grid;grid-template-columns:1fr auto;gap:7px}
+.search-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
 .search-box{position:relative}
 .autocomplete{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:300px;overflow:auto}
 .autocomplete button{display:block;width:100%;border:0;border-bottom:1px solid #edf0f4;border-radius:0;text-align:left}
@@ -159,7 +159,7 @@ label input,label select,label textarea{margin-top:4px}
 /* v0.9.6 field UX */
 .source-health{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:7px 0 10px;font-size:11px}
 .source-health-tag{border:1px solid var(--line);border-radius:999px;padding:4px 7px;background:#fff}
-.source-health-tag.ok{color:var(--ok)} .source-health-tag.bad{color:var(--danger);opacity:.8} .source-health-tag.skip{color:var(--muted)}
+.source-health-tag.ok{color:var(--ok)} .source-health-tag.bad{color:var(--danger);opacity:.8} .source-health-tag.warn{color:var(--warn)} .source-health-tag.skip{color:var(--muted)}
 .candidate-featured-list .card{border-width:2px}.candidate-featured-list .card:first-child{box-shadow:var(--shadow)}
 .candidate-rank-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:999px;background:#111827;color:#fff;font-size:12px;font-weight:800;margin-right:6px}
 .candidate-other-list{margin-top:10px}
@@ -1266,5 +1266,66 @@ html[lang="en"] .custom-point-fab{
   }
   html[lang="en"] .field-mode-status-actions{
     grid-template-columns:1fr 1fr;
+  }
+}
+
+/* Paginated occurrence search */
+.search-progress{
+  display:grid;
+  gap:8px;
+  margin:7px 0 10px;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#fff;
+}
+.search-progress-source{
+  display:grid;
+  gap:5px;
+}
+.search-progress-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-size:11px;
+}
+.search-progress-head span{
+  color:var(--muted);
+  text-align:right;
+}
+.search-progress-track{
+  height:5px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e8ebef;
+}
+.search-progress-track span{
+  display:block;
+  height:100%;
+  min-width:2%;
+  border-radius:inherit;
+  background:#334155;
+  transition:width .18s ease;
+}
+.result-load-more{
+  width:100%;
+  margin:10px 0 4px;
+  padding:11px;
+}
+@media(max-width:520px){
+  .search-row{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+  #searchCancelBtn{
+    grid-column:1/-1;
+  }
+  .search-progress-head{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:2px;
+  }
+  .search-progress-head span{
+    text-align:left;
   }
 }

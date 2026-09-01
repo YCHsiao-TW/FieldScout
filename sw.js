@@ -1,26 +1,27 @@
-const CACHE="fieldscout-v1.0.0-shell";
+const CACHE_PREFIX="fieldscout-";
+const CACHE="fieldscout-v1.1.0-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=1.0.0","./db.js?v=1.0.0","./utils.js?v=1.0.0",
-  "./api.js?v=1.0.0","./ranking.js?v=1.0.0","./i18n.js?v=1.0.0",
+  "./app.js?v=1.1.0","./db.js?v=1.1.0","./utils.js?v=1.1.0",
+  "./api.js?v=1.1.0","./ranking.js?v=1.1.0","./i18n.js?v=1.1.0",
+  "./backup.js?v=1.1.0",
   "./manifest.webmanifest"
 ];
 
 self.addEventListener("install",e=>{
-  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(async c=>{
-      for(const asset of ASSETS){
-        try{await c.add(asset)}catch(err){console.warn("SW cache skip",asset,err)}
-      }
-    })
+    caches.open(CACHE)
+      .then(c=>c.addAll(ASSETS))
+      .then(()=>self.skipWaiting())
   );
 });
 
 self.addEventListener("activate",e=>{
   e.waitUntil(
     caches.keys()
-      .then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+      .then(ks=>Promise.all(
+        ks.filter(k=>k.startsWith(CACHE_PREFIX)&&k!==CACHE).map(k=>caches.delete(k))
+      ))
       .then(()=>self.clients.claim())
   );
 });

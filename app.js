@@ -1,10 +1,12 @@
-import {put,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.0.0";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.0.0";
-import {taxonomy,occurrences} from "./api.js?v=1.0.0";
-import {rankCandidates} from "./ranking.js?v=1.0.0";
-import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.0.0";
+import {put,putManyAtomic,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.1.0";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.1.0";
+import {taxonomy,occurrences,mergeOccurrences} from "./api.js?v=1.1.0";
+import {rankCandidates} from "./ranking.js?v=1.1.0";
+import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.1.0";
+import {BACKUP_IMAGE_TYPES,BACKUP_MAX_BYTES,BACKUP_PHOTO_MAX_BYTES,validateBackupDocument} from "./backup.js?v=1.1.0";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const RESULT_BATCH_SIZE=200;
 
 const COUNTRIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AS","American Samoa"],["AD","Andorra"],["AO","Angola"],["AI","Anguilla"],["AQ","Antarctica"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AW","Aruba"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BM","Bermuda"],["BT","Bhutan"],["BO","Bolivia"],["BQ","Bonaire, Sint Eustatius and Saba"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BV","Bouvet Island"],["BR","Brazil"],["IO","British Indian Ocean Territory"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["KY","Cayman Islands"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CX","Christmas Island"],["CC","Cocos (Keeling) Islands"],["CO","Colombia"],["KM","Comoros"],["CK","Cook Islands"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CW","Curaçao"],["CY","Cyprus"],["CZ","Czechia"],["CI","Côte d'Ivoire"],["CD","Democratic Republic of the Congo"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FK","Falkland Islands (Malvinas)"],["FO","Faroe Islands"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GF","French Guiana"],["PF","French Polynesia"],["TF","French Southern Territories"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GI","Gibraltar"],["GR","Greece"],["GL","Greenland"],["GD","Grenada"],["GP","Guadeloupe"],["GU","Guam"],["GT","Guatemala"],["GG","Guernsey"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HM","Heard Island and McDonald Islands"],["HN","Honduras"],["HK","Hong Kong"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IM","Isle of Man"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JE","Jersey"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MO","Macao"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MQ","Martinique"],["MR","Mauritania"],["MU","Mauritius"],["YT","Mayotte"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MS","Montserrat"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NC","New Caledonia"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NU","Niue"],["NF","Norfolk Island"],["KP","North Korea"],["MK","North Macedonia"],["MP","Northern Mariana Islands"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PN","Pitcairn"],["PL","Poland"],["PT","Portugal"],["PR","Puerto Rico"],["QA","Qatar"],["CG","Republic of the Congo"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["RE","Réunion"],["BL","Saint Barthélemy"],["SH","Saint Helena, Ascension and Tristan da Cunha"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["MF","Saint Martin (French part)"],["PM","Saint Pierre and Miquelon"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SX","Sint Maarten (Dutch part)"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["GS","South Georgia and the South Sandwich Islands"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SJ","Svalbard and Jan Mayen"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TK","Tokelau"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TM","Turkmenistan"],["TC","Turks and Caicos Islands"],["TV","Tuvalu"],["TR","Türkiye"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UM","United States Minor Outlying Islands"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["VG","Virgin Islands, British"],["VI","Virgin Islands, U.S."],["WF","Wallis and Futuna"],["EH","Western Sahara"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"],["AX","Åland Islands"]];
 const countryDisplayNamesCache=new Map();
@@ -58,7 +60,8 @@ const state={
   selectedOccurrenceId:null,selectedTripPointId:null,
   tripMarkerMap:new Map(),
   fieldModeIndex:0,fieldModeReturn:false,
-  customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null
+  customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null,
+  searchAbort:null,searchProgress:{},resultVisibleLimit:RESULT_BATCH_SIZE
 };
 const translateRoot=root=>{if(root)applyTranslations(root)};
 const setStatus=text=>{
@@ -139,6 +142,9 @@ function setupLanguageSelector(initialLanguage="zh-Hant"){
 
         // Re-render dynamic sections once after the language has settled.
         renderAll();
+        if(!$("#searchProgress")?.classList.contains("hidden")){
+          renderSearchProgress();
+        }
       }
     }finally{
       languageSwitchBusy=false;
@@ -339,7 +345,10 @@ function setupStatic(){
   $("#customPointPickDoneBtn").onclick=finishCustomPointMapPick;
   $("#customPointPickCancelBtn").onclick=cancelCustomPointMapPick;
   $("#basemapSelect").onchange=()=>selectBasemap($("#basemapSelect").value);
-  $("#searchBtn").onclick=searchTaxon;$("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
+  $("#searchBtn").onclick=searchTaxon;
+  $("#searchCancelBtn").onclick=cancelOccurrenceSearch;
+  $("#resultLoadMoreBtn").onclick=loadMoreOccurrences;
+  $("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
   let at=null;$("#taxonInput").addEventListener("input",()=>{clearTimeout(at);const q=$("#taxonInput").value.trim();if(q.length<2){$("#autocomplete").classList.add("hidden");return}at=setTimeout(()=>autocomplete(q),250)});
   $("#applyFiltersBtn").onclick=applyFilters;
   $("#resetFiltersBtn").onclick=resetFilters;
@@ -485,6 +494,90 @@ async function autocomplete(q){
   try{const x=await taxonomy(q,searchContext());const l=x.suggestions||[];$("#autocomplete").innerHTML=l.map((r,i)=>`<button data-auto="${i}"><strong>${esc(r.commonName||r.scientificName)}</strong><div class="meta"><i>${esc(r.scientificName)}</i> · ${esc(r.rank||"")}</div></button>`).join("")||`<div class="empty">無建議</div>`;$("#autocomplete").classList.remove("hidden");$$("[data-auto]").forEach(b=>b.onclick=()=>{$("#taxonInput").value=l[+b.dataset.auto].scientificName;$("#autocomplete").classList.add("hidden")})}catch(_){}
 }
 
+function setSearchBusy(busy){
+  $("#searchBtn").disabled=busy;
+  $("#searchCancelBtn").classList.toggle("hidden",!busy);
+  $("#searchCancelBtn").disabled=false;
+}
+
+function cancelOccurrenceSearch(){
+  if(!state.searchAbort)return;
+  $("#searchCancelBtn").disabled=true;
+  state.searchAbort.abort();
+  setStatus("正在停止搜尋…");
+}
+
+function progressStatusLabel(status){
+  const english=getLanguage()==="en";
+  const labels=english
+    ? {loading:"Loading",ok:"Complete",capped:"Official limit",partial:"Partial",unavailable:"Unavailable",cancelled:"Cancelled"}
+    : {loading:"載入中",ok:"完成",capped:"官方上限",partial:"部分完成",unavailable:"無法使用",cancelled:"已取消"};
+  return labels[status]||status||labels.loading;
+}
+
+function renderSearchProgress(){
+  const box=$("#searchProgress");
+  if(!box)return;
+  const english=getLanguage()==="en";
+  const sources=["GBIF","iNaturalist"];
+
+  box.classList.remove("hidden");
+  box.innerHTML=sources.map(source=>{
+    const item=state.searchProgress[source]||{
+      source,loaded:0,fetched:0,total:null,status:"loading",done:false
+    };
+    const fetched=Math.max(0,Number(item.fetched)||0);
+    const loaded=Math.max(0,Number(item.loaded)||0);
+    const hasTotal=item.total!==null&&item.total!==undefined&&item.total!=="";
+    const total=hasTotal&&Number.isFinite(Number(item.total))
+      ? Math.max(0,Number(item.total))
+      : null;
+    const percent=item.done
+      ? 100
+      : total>0
+        ? Math.max(2,Math.min(99,100*fetched/total))
+        : fetched>0?15:2;
+    const count=total===null
+      ? fetched.toLocaleString()
+      : `${fetched.toLocaleString()} / ${total.toLocaleString()}`;
+    const detail=english
+      ? `${count} fetched · ${loaded.toLocaleString()} valid coordinates`
+      : `${count} 已讀取 · ${loaded.toLocaleString()} 筆有效座標`;
+    return `<div class="search-progress-source">
+      <div class="search-progress-head">
+        <strong>${source}</strong>
+        <span>${esc(detail)} · ${esc(progressStatusLabel(item.status))}</span>
+      </div>
+      <div class="search-progress-track"><span style="width:${percent.toFixed(1)}%"></span></div>
+    </div>`;
+  }).join("");
+}
+
+function updateSearchProgress(detail){
+  if(!detail?.source)return;
+  state.searchProgress[detail.source]={...detail};
+  renderSearchProgress();
+}
+
+function restoreSearchSnapshot(snapshot){
+  state.taxon=snapshot.taxon;
+  state.allRecords=snapshot.allRecords;
+  state.filtered=snapshot.filtered;
+  state.candidates=snapshot.candidates;
+  state.resultVisibleLimit=snapshot.resultVisibleLimit;
+  if(state.taxon)renderTaxon();
+  else $("#taxonCard").classList.add("hidden");
+  if(state.allRecords.length){
+    const previousVisibleLimit=state.resultVisibleLimit;
+    applyFilters();
+    state.resultVisibleLimit=Math.min(
+      state.filtered.length,
+      Math.max(RESULT_BATCH_SIZE,previousVisibleLimit)
+    );
+    renderOccurrences();
+  }
+}
+
 async function findOccurrenceCache(query,scientificName=""){
   const keys=new Set(
     [query,scientificName]
@@ -501,6 +594,10 @@ async function findOccurrenceCache(query,scientificName=""){
     .sort((a,b)=>String(b.savedAt||"").localeCompare(String(a.savedAt||"")))[0]||null;
 }
 
+function occurrenceSourceCount(records,source){
+  return (records||[]).filter(r=>(r.sources||[]).includes(source)).length;
+}
+
 async function loadOccurrenceCache(query,scientificName=""){
   const hit=await findOccurrenceCache(query,scientificName);
   if(!hit)return false;
@@ -509,7 +606,16 @@ async function loadOccurrenceCache(query,scientificName=""){
   state.allRecords=Array.isArray(hit.records)?hit.records:[];
   renderTaxon();
   applyFilters();
-  updateSourceHealth({GBIF:"unavailable",iNaturalist:"unavailable"},{});
+  const counts={};
+  const status={};
+  for(const source of ["GBIF","iNaturalist"]){
+    const savedCount=Number(hit.sourceCounts?.[source]);
+    counts[source]=Number.isFinite(savedCount)
+      ? savedCount
+      : occurrenceSourceCount(state.allRecords,source);
+    status[source]=counts[source]>0?"cached":"unavailable";
+  }
+  updateSourceHealth(status,counts,hit.sourceTruncated||{});
 
   const saved=new Date(hit.savedAt);
   const savedLabel=Number.isNaN(saved.getTime())
@@ -520,20 +626,45 @@ async function loadOccurrenceCache(query,scientificName=""){
 }
 
 async function searchTaxon(){
+  if(state.searchAbort)return;
   const q=$("#taxonInput").value.trim();if(!q)return;
-  $("#searchBtn").disabled=true;setStatus("正在查詢 GBIF、iNaturalist…");
+  const snapshot={
+    taxon:state.taxon,
+    allRecords:state.allRecords,
+    filtered:state.filtered,
+    candidates:state.candidates,
+    resultVisibleLimit:state.resultVisibleLimit
+  };
+  const controller=new AbortController();
+  state.searchAbort=controller;
+  state.searchProgress={};
+  setSearchBusy(true);
+  renderSearchProgress();
+  setStatus("正在逐頁查詢 GBIF、iNaturalist…");
   let resolvedScientificName="";
   try{
-    const t=await taxonomy(q,searchContext());
+    const t=await taxonomy(q,{...searchContext(),signal:controller.signal});
     state.taxon=t.best;
     resolvedScientificName=state.taxon.scientificName||"";
     renderTaxon();
 
-    const o=await occurrences(state.taxon,searchContext());
-    const hasLiveSource=Object.values(o.sourceStatus||{}).some(x=>x==="ok");
+    const o=await occurrences(state.taxon,searchContext(),{
+      signal:controller.signal,
+      onProgress:updateSearchProgress
+    });
+    const hasLiveSource=["GBIF","iNaturalist"].some(source=>
+      ["ok","capped"].includes(o.sourceStatus?.[source])||
+      Number(o.sourceCounts?.[source])>0
+    );
+
+    if(o.cancelled&&!hasLiveSource){
+      restoreSearchSnapshot(snapshot);
+      setStatus("搜尋已取消；原本的搜尋結果已保留。");
+      return;
+    }
 
     if(!hasLiveSource){
-      updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{});
+      updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{},o.sourceTruncated||{});
       if(await loadOccurrenceCache(q,resolvedScientificName))return;
 
       state.allRecords=[];
@@ -542,32 +673,96 @@ async function searchTaxon(){
       return;
     }
 
-    state.allRecords=o.records||[];
-    try{
-      await put("cache",{
-        id:`${state.profile.id}:occ:${state.taxon.scientificName.toLowerCase()}`,
-        profileId:state.profile.id,query:q.toLowerCase(),taxon:state.taxon,
-        countryCode:state.profile.countryCode,
-        records:state.allRecords,savedAt:new Date().toISOString()
-      });
-    }catch(cacheError){
-      // Search results remain usable even when the browser cannot persist a
-      // fresh cache (for example, because its storage quota is full).
-      console.warn("Occurrence cache write failed",cacheError);
+    const previousCache=await findOccurrenceCache(q,resolvedScientificName);
+    const displayStatus={...(o.sourceStatus||{})};
+    const displayCounts={...(o.sourceCounts||{})};
+    const displayTruncated={...(o.sourceTruncated||{})};
+    const cachedSources=[];
+    let records=o.records||[];
+
+    // If one live source fails, supplement the successful response with that
+    // source's last complete cache. Keep the old cache intact: a partial live
+    // response must never overwrite a previously complete snapshot.
+    if(previousCache?.records){
+      const failedSources=["GBIF","iNaturalist"]
+        .filter(source=>["partial","unavailable","cancelled"].includes(o.sourceStatus?.[source]));
+      const cachedFallback=previousCache.records.filter(r=>
+        failedSources.some(source=>(r.sources||[]).includes(source))
+      );
+
+      if(cachedFallback.length){
+        records=mergeOccurrences([...records,...cachedFallback]);
+        for(const source of failedSources){
+          if(!occurrenceSourceCount(previousCache.records,source))continue;
+          displayStatus[source]="cached";
+          displayCounts[source]=occurrenceSourceCount(records,source);
+          displayTruncated[source]=Boolean(previousCache.sourceTruncated?.[source]);
+          cachedSources.push(source);
+        }
+      }
+    }
+
+    state.allRecords=records;
+    const allSourcesCacheable=["GBIF","iNaturalist"]
+      .every(source=>["ok","capped"].includes(o.sourceStatus?.[source]));
+    if(allSourcesCacheable){
+      try{
+        const cacheKey=(state.taxon.scientificName||q).toLowerCase();
+        await put("cache",{
+          id:`${state.profile.id}:occ:${cacheKey}`,
+          profileId:state.profile.id,query:q.toLowerCase(),taxon:state.taxon,
+          countryCode:state.profile.countryCode,
+          records:state.allRecords,
+          sourceStatus:o.sourceStatus,
+          sourceCounts:o.sourceCounts,
+          sourceFetched:o.sourceFetched,
+          sourceTotals:o.sourceTotals,
+          sourceTruncated:o.sourceTruncated,
+          sourceCapped:o.sourceCapped,
+          savedAt:new Date().toISOString()
+        });
+      }catch(cacheError){
+        // Search results remain usable even when the browser cannot persist a
+        // fresh cache (for example, because its storage quota is full).
+        console.warn("Occurrence cache write failed",cacheError);
+      }
     }
     applyFilters();
-    updateSourceHealth(o.sourceStatus||{},o.sourceCounts||{});
-    setStatus(`${state.profile.countryLabel}：整合 ${state.allRecords.length} 筆；GBIF ${o.sourceCounts.GBIF}、iNaturalist ${o.sourceCounts.iNaturalist}${o.warnings.length?`；本次不可用：${o.warnings.join(", ")}`:""}`);
+    updateSourceHealth(displayStatus,displayCounts,displayTruncated);
+    const unavailable=["GBIF","iNaturalist"].filter(source=>
+      o.sourceStatus?.[source]==="unavailable"&&!cachedSources.includes(source)
+    );
+    const partial=["GBIF","iNaturalist"].filter(source=>
+      o.sourceStatus?.[source]==="partial"&&!cachedSources.includes(source)
+    );
+    const capped=["GBIF","iNaturalist"].filter(source=>o.sourceCapped?.[source]);
+    setStatus(
+      `${state.profile.countryLabel}：整合 ${state.allRecords.length} 筆；`+
+      `GBIF ${displayCounts.GBIF||0}、iNaturalist ${displayCounts.iNaturalist||0}`+
+      `${cachedSources.length?`；快取補足：${cachedSources.join(", ")}`:""}`+
+      `${unavailable.length?`；本次不可用：${unavailable.join(", ")}`:""}`+
+      `${partial.length?`；部分載入：${partial.join(", ")}`:""}`+
+      `${capped.length?`；已達來源官方上限：${capped.join(", ")}`:""}`+
+      `${o.cancelled?"；搜尋已取消，保留已載入結果":""}`
+    );
   }catch(e){
+    if(controller.signal.aborted||e?.name==="AbortError"){
+      restoreSearchSnapshot(snapshot);
+      setStatus("搜尋已取消；原本的搜尋結果已保留。");
+      return;
+    }
     updateSourceHealth({GBIF:"unavailable",iNaturalist:"unavailable"},{});
     if(!await loadOccurrenceCache(q,resolvedScientificName)){
       state.allRecords=[];
       applyFilters();
       setStatus("搜尋失敗，且此物種尚無本機快取："+e.message);
     }
-  }finally{$("#searchBtn").disabled=false}
+  }finally{
+    if(state.searchAbort===controller)state.searchAbort=null;
+    setSearchBusy(false);
+  }
 }
-function updateSourceHealth(status,counts){
+function updateSourceHealth(status,counts,truncated={}){
   const box=$("#sourceHealth");
   if(!box)return;
   box.classList.remove("hidden");
@@ -579,10 +774,11 @@ function updateSourceHealth(status,counts){
 
   box.innerHTML=labels.map(([key,label])=>{
     const s=status[key]||"skip";
-    const cls=s==="ok"?"ok":s==="unavailable"?"bad":"skip";
-    const symbol=s==="ok"?"✓":s==="unavailable"?"×":"–";
+    const cls=["ok","capped"].includes(s)?"ok":s==="unavailable"?"bad":s==="partial"?"warn":"skip";
+    const symbol=["ok","capped"].includes(s)?"✓":s==="cached"?"◷":s==="partial"?"!":s==="cancelled"?"■":s==="unavailable"?"×":"–";
     const count=counts[key]??0;
-    return `<span class="source-health-tag ${cls}">${esc(label)} ${symbol}${s==="ok"?` ${count}`:""}</span>`;
+    const showCount=["ok","capped","cached","partial","cancelled"].includes(s);
+    return `<span class="source-health-tag ${cls}">${esc(label)} ${symbol}${showCount?` ${count}${truncated[key]?"+":""}`:""}</span>`;
   }).join("");
 }
 
@@ -647,11 +843,10 @@ function applyFilters(){
   );
 
   state.filtered=l;
+  state.resultVisibleLimit=RESULT_BATCH_SIZE;
   renderOccurrences();
   rerank();
   renderMonthChart();
-  $("#resultMeta").textContent=
-    `${l.length} / ${state.allRecords.length} 筆${mapBounds?" · 目前地圖範圍":""}`;
 }
 
 function resetFilters(){
@@ -665,8 +860,9 @@ function renderOccurrences(){
   if(state.cluster)state.cluster.clearLayers();
   state.markerMap.clear();
   const bounds=[];
+  const visible=state.filtered.slice(0,state.resultVisibleLimit);
 
-  for(const r of state.filtered){
+  for(const r of visible){
     if(!window.L||!state.cluster)break;
     const icon=L.divIcon({
       className:`occ-marker-wrap ${state.selectedOccurrenceId===r.id?"selected-occ-marker":""}`,
@@ -701,8 +897,8 @@ function renderOccurrences(){
     state.map.fitBounds(bounds,{padding:[20,20],maxZoom:12});
   }
 
-  $("#resultList").innerHTML=state.filtered.length
-    ? state.filtered.slice(0,200).map((r,i)=>{
+  $("#resultList").innerHTML=visible.length
+    ? visible.map((r,i)=>{
         const img=(r.imageUrls||[])[0];
         return `<article class="card ${state.selectedOccurrenceId===r.id?"selected":""}" data-card="${esc(r.id)}">
           <div class="occ-card-layout">
@@ -731,13 +927,13 @@ function renderOccurrences(){
     : `<div class="empty">無符合紀錄。</div>`;
 
   $$("[data-focus]").forEach(b=>b.onclick=()=>{
-    const r=state.filtered[+b.dataset.focus];
+    const r=visible[+b.dataset.focus];
     if(state.map)state.map.setView([r.lat,r.lon],16);
     selectOccurrence(r.id,false);
     state.markerMap.get(r.id)?.openPopup();
   });
-  $$("[data-detail]").forEach(b=>b.onclick=()=>showOccurrenceDetail(state.filtered[+b.dataset.detail]));
-  $$("[data-add]").forEach(b=>b.onclick=()=>addToTrip(state.filtered[+b.dataset.add]));
+  $$("[data-detail]").forEach(b=>b.onclick=()=>showOccurrenceDetail(visible[+b.dataset.detail]));
+  $$("[data-add]").forEach(b=>b.onclick=()=>addToTrip(visible[+b.dataset.add]));
   $$("[data-occ-thumb]").forEach(img=>img.addEventListener("error",()=>{
     const wrap=img.closest(".occ-thumb-wrap");
     if(wrap)wrap.innerHTML='<div class="occ-card-no-image">Image unavailable</div>';
@@ -746,8 +942,25 @@ function renderOccurrences(){
   if(state.selectedOccurrenceId && !state.filtered.some(r=>r.id===state.selectedOccurrenceId)){
     state.selectedOccurrenceId=null;
   }
+  const loadMore=$("#resultLoadMoreBtn");
+  if(loadMore)loadMore.classList.toggle("hidden",visible.length>=state.filtered.length);
+  const mapBounds=$("#filterMapBounds")?.checked&&state.map;
+  $("#resultMeta").textContent=
+    `${state.filtered.length} / ${state.allRecords.length} 筆 · 目前顯示 ${visible.length}`+
+    `${mapBounds?" · 目前地圖範圍":""}`;
   applyOccurrenceSelection();
+  translateRoot($("#resultMeta"));
+  translateRoot(loadMore);
   translateRoot($("#resultList"));
+}
+
+function loadMoreOccurrences(){
+  if(state.resultVisibleLimit>=state.filtered.length)return;
+  state.resultVisibleLimit=Math.min(
+    state.filtered.length,
+    state.resultVisibleLimit+RESULT_BATCH_SIZE
+  );
+  renderOccurrences();
 }
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
@@ -1840,9 +2053,20 @@ async function addPointToTrip(rawPoint){
 
 async function addAllVisible(){
   try{
+    if(state.filtered.length>500&&!window.confirm(translateText(
+      `目前有 ${state.filtered.length} 筆篩選結果，全部加入可能讓行程非常龐大。仍要繼續嗎？`
+    )))return;
+
     const t=await ensureTrip();
     t.points=Array.isArray(t.points)?t.points:[];
     let n=0,skipped=0;
+    const existingIds=new Set(t.points.map(point=>String(point.id)));
+    const pointKey=point=>[
+      Number(point.lat).toFixed(7),
+      Number(point.lon).toFixed(7),
+      String(point.name||"")
+    ].join("|");
+    const existingCoordinates=new Set(t.points.map(pointKey));
 
     for(const r of state.filtered){
       let p;
@@ -1859,17 +2083,15 @@ async function addAllVisible(){
         continue;
       }
 
-      const duplicate=t.points.some(x=>
-        String(x.id)===String(p.id) ||
-        (
-          Math.abs(Number(x.lat)-p.lat)<1e-7 &&
-          Math.abs(Number(x.lon)-p.lon)<1e-7 &&
-          String(x.name||"")===String(p.name||"")
-        )
-      );
+      const idKey=String(p.id);
+      const coordinateKey=pointKey(p);
+      const duplicate=existingIds.has(idKey)||existingCoordinates.has(coordinateKey);
 
       if(duplicate){skipped++;continue}
-      t.points.push(p);n++;
+      t.points.push(p);
+      existingIds.add(idKey);
+      existingCoordinates.add(coordinateKey);
+      n++;
     }
 
     state.activeTrip=t;
@@ -2820,7 +3042,7 @@ async function exportBackup(){
     "fieldscout_backup.json",
     "application/json",
     JSON.stringify({
-      version:"1.0.0",
+      version:"1.1.0",
       profile:state.profile,
       settings:state.settings,
       trips:state.trips,
@@ -2833,36 +3055,51 @@ async function exportBackup(){
 }
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 async function dataUrlToBlob(url){return await (await fetch(url)).blob()}
+
 async function restoreBackup(e){
   const f=e.target.files?.[0];
   if(!f)return;
   const previousSettings=state.settings;
   try{
+    if(f.size>BACKUP_MAX_BYTES)throw new Error("Backup 超過 100 MB 上限");
     const d=JSON.parse(await f.text());
-    if(!d.profile?.email)throw new Error("無效 backup");
+    const data=validateBackupDocument(d);
     if(d.profile.id!==state.profile.id&&!confirm(`Backup 屬於 ${d.profile.email}，仍要匯入目前 profile？`))return;
 
-    if(d.settings){
-      await put("settings",{
+    const settings=d.settings?[{
         ...d.settings,
         id:`${state.profile.id}:settings`,
         profileId:state.profile.id
-      });
-    }
-    for(const t of d.trips||[])await put("trips",{...t,profileId:state.profile.id});
-    for(const r of d.records||[])await put("records",{...r,profileId:state.profile.id});
-    for(const p of d.photos||[]){
-      if(!p?.dataUrl)continue;
-      await put("photos",{
-        ...p,
+      }]:[];
+    const trips=data.trips.map(t=>({...t,profileId:state.profile.id}));
+    const records=data.records.map(r=>({...r,profileId:state.profile.id}));
+    const photos=[];
+    for(const p of data.photos){
+      const {dataUrl,blob:ignoredBlob,...photo}=p;
+      const converted=await dataUrlToBlob(dataUrl);
+      if(!BACKUP_IMAGE_TYPES.has(converted.type.toLowerCase())||converted.size>BACKUP_PHOTO_MAX_BYTES){
+        throw new Error(`Backup 照片內容無效或超過 15 MB：${p.id}`);
+      }
+      photos.push({
+        ...photo,
         profileId:state.profile.id,
-        blob:await dataUrlToBlob(p.dataUrl)
+        blob:converted
       });
     }
-    for(const c of d.cache||[]){
-      if(c.kind==="offline-map")continue;
-      await put("cache",{...c,profileId:state.profile.id});
-    }
+    const cache=data.cache
+      .filter(c=>c.kind!=="offline-map")
+      .map(c=>{
+        const cacheName=String(c.taxon?.scientificName||c.query||c.id).toLowerCase();
+        return {
+          ...c,
+          id:`${state.profile.id}:occ:${cacheName}`,
+          profileId:state.profile.id
+        };
+      });
+
+    // All conversion and validation happens before opening this transaction.
+    // IndexedDB then commits every imported store together or none of them.
+    await putManyAtomic({settings,trips,records,photos,cache});
 
     state.settings=await get("settings",`${state.profile.id}:settings`)||previousSettings||{
       id:`${state.profile.id}:settings`,

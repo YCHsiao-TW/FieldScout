@@ -59,6 +59,40 @@ export async function put(store,obj){
   }finally{db.close()}
 }
 
+export async function putManyAtomic(entriesByStore){
+  const entries=Object.entries(entriesByStore||{})
+    .map(([store,items])=>[store,Array.isArray(items)?items:[]])
+    .filter(([,items])=>items.length>0);
+  if(!entries.length)return;
+
+  for(const [store,items] of entries){
+    for(const item of items){
+      if(!item||typeof item!=="object"||item.id===null||item.id===undefined||String(item.id).trim()===""){
+        throw new Error(`無法寫入 ${store}：資料缺少 id`);
+      }
+    }
+  }
+
+  const db=await openCurrentDb();
+  try{
+    const stores=entries.map(([store])=>store);
+    for(const store of stores){
+      if(!hasStore(db,store))throw new Error(`IndexedDB store 不存在：${store}`);
+    }
+
+    await new Promise((resolve,reject)=>{
+      const t=db.transaction(stores,"readwrite");
+      for(const [store,items] of entries){
+        const objectStore=t.objectStore(store);
+        for(const item of items)objectStore.put(item);
+      }
+      t.oncomplete=()=>resolve();
+      t.onerror=()=>reject(t.error||new Error("批次寫入失敗"));
+      t.onabort=()=>reject(t.error||new Error("批次寫入已中止"));
+    });
+  }finally{db.close()}
+}
+
 export async function get(store,id){
   const db=await openCurrentDb();
   try{

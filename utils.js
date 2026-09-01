@@ -7,7 +7,7 @@ export function hashEmail(email){
 export function haversineKm(a,b){
   const R=6371,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);
   const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(x));
+  return 2*R*Math.asin(Math.sqrt(Math.max(0,Math.min(1,x))));
 }
 export function googleMapsUrl(lat,lon){return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}`}
 export function googleMapsRouteUrl(points){
@@ -67,7 +67,19 @@ export function downloadText(name,type,text){
   const a=document.createElement("a"),url=URL.createObjectURL(new Blob([text],{type}));
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-export function csvEscape(v){return `"${String(v??"").replaceAll('"','""')}"`}
+export function csvEscape(v){
+  const raw=String(v??"");
+  const trimmed=raw.trimStart();
+  const numericLiteral=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+  const formulaLike=
+    typeof v==="string"&&(
+      /^[=+@]/.test(trimmed)||
+      (trimmed.startsWith("-")&&!numericLiteral.test(trimmed))||
+      /^[\t\r]/.test(raw)
+    );
+  const safe=formulaLike?`'${raw}`:raw;
+  return `"${safe.replaceAll('"','""')}"`;
+}
 export function toCSV(rows){return "\ufeff"+rows.map(r=>r.map(csvEscape).join(",")).join("\n")}
 export function geojsonPoints(items,propsFn){
   return {

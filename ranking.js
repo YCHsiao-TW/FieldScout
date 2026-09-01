@@ -1,51 +1,100 @@
 import {haversineKm} from "./utils.js";
 
+function validCoordinate(lat,lon){
+  return Number.isFinite(lat)&&Number.isFinite(lon)&&
+    lat>=-90&&lat<=90&&lon>=-180&&lon<=180;
+}
+
+function numericValue(value){
+  if(value===null||value===undefined||String(value).trim()==="")return null;
+  const number=Number(value);
+  return Number.isFinite(number)?number:null;
+}
+
+function eventYear(value,currentYear){
+  const match=String(value||"").match(/^(\d{4})(?:-|$)/);
+  if(!match)return null;
+  const year=Number(match[1]);
+  return Number.isInteger(year)&&year>0&&year<=currentYear?year:null;
+}
+
+function eventMonth(value){
+  const match=String(value||"").match(/^\d{4}-(\d{2})(?:-|$)/);
+  if(!match)return null;
+  const month=Number(match[1]);
+  return Number.isInteger(month)&&month>=1&&month<=12?month:null;
+}
+
+function median(values){
+  if(!values.length)return 500;
+  const middle=Math.floor(values.length/2);
+  return values.length%2
+    ? values[middle]
+    : (values[middle-1]+values[middle])/2;
+}
+
 export function rankCandidates(records,currentPos,targetMonth){
   const groups=new Map();
 
-  for(const r of records){
-    const lat=Number(r.lat),lon=Number(r.lon);
-    if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+  for(const r of records||[]){
+    const lat=numericValue(r.lat),lon=numericValue(r.lon);
+    if(!validCoordinate(lat,lon))continue;
     const k=`${lat.toFixed(2)},${lon.toFixed(2)}`;
     if(!groups.has(k))groups.set(k,[]);
     groups.get(k).push(r);
   }
 
-  const m=Number(targetMonth)||new Date().getMonth()+1;
-  const nowY=new Date().getFullYear();
+  const now=new Date();
+  const requestedMonth=Number(targetMonth);
+  const m=Number.isInteger(requestedMonth)&&requestedMonth>=1&&requestedMonth<=12
+    ? requestedMonth
+    : now.getMonth()+1;
+  const nowY=now.getFullYear();
+  const currentLat=numericValue(currentPos?.lat),currentLon=numericValue(currentPos?.lon);
+  const validCurrentPos=validCoordinate(currentLat,currentLon)
+    ? {lat:currentLat,lon:currentLon}
+    : null;
 
   const out=[...groups.values()].map(arr=>{
     const lat=arr.reduce((s,r)=>s+Number(r.lat),0)/arr.length;
     const lon=arr.reduce((s,r)=>s+Number(r.lon),0)/arr.length;
 
-    const years=arr
-      .map(r=>+String(r.eventDate||"").slice(0,4))
-      .filter(Number.isFinite);
+    const years=arr.map(r=>eventYear(r.eventDate,nowY)).filter(y=>y!==null);
 
-    const newest=years.length?Math.max(...years):null;
-    const mh=arr.filter(r=>+String(r.eventDate||"").slice(5,7)===m).length;
+    // Avoid spreading a very large occurrence group into Math.max(), which
+    // can exceed JavaScript's argument limit after unrestricted pagination.
+    const newest=years.length
+      ? years.reduce((latest,year)=>Math.max(latest,year),years[0])
+      : null;
+    const mh=arr.filter(r=>eventMonth(r.eventDate)===m).length;
 
     const density=Math.min(25,6*Math.log2(arr.length+1));
     const recency=newest==null
       ? 5
-      : Math.max(0,20-Math.min(20,(nowY-newest)*1.3));
+      : Math.max(0,Math.min(20,20-(nowY-newest)*1.3));
     const season=20*(mh/arr.length);
 
-    const dist=currentPos?haversineKm(currentPos,{lat,lon}):null;
+    const dist=validCurrentPos?haversineKm(validCurrentPos,{lat,lon}):null;
     const access=dist==null
       ? 8
       : Math.max(0,15-Math.min(15,dist/8));
 
     const unc=arr
-      .map(r=>Number(r.uncertaintyM))
-      .filter(Number.isFinite)
+      .map(r=>numericValue(r.uncertaintyM))
+      .filter(v=>v!==null&&v>=0)
       .sort((a,b)=>a-b);
 
-    const med=unc.length?unc[Math.floor(unc.length/2)]:500;
+    const med=median(unc);
     const coord=Math.max(0,10-Math.min(10,med/150));
 
-    const sources=[...new Set(arr.flatMap(r=>r.sources||[]))];
-    const multi=Math.min(10,sources.length*3.5);
+    const sourceSet=new Set();
+    for(const record of arr){
+      for(const source of record.sources||[])sourceSet.add(source);
+    }
+    const sources=[...sourceSet];
+    // The current release integrates two occurrence sources. One source earns
+    // half credit; independent support from both earns the full 10 points.
+    const multi=Math.min(10,sources.length*5);
 
     const breakdown={
       density:+density.toFixed(1),

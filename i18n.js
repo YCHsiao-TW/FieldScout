@@ -28,6 +28,7 @@ const ZH_TO_EN={
 
   // Explore
   "搜尋":"Search",
+  "取消搜尋":"Cancel search",
   "進階篩選與排序":"Advanced filters & sorting",
   "起始日期":"Start date",
   "結束日期":"End date",
@@ -59,6 +60,7 @@ const ZH_TO_EN={
   "尚未搜尋":"Not searched yet",
   "選取後會保持高亮，直到選擇另一個點":"Selection remains highlighted until another point is selected.",
   "全部加入行程":"Add all to Trip",
+  "載入更多紀錄":"Load more records",
 
   // Trips
   "整理採集目標、排序路線與準備野外工作。":"Organize targets, order routes, and prepare fieldwork.",
@@ -273,6 +275,9 @@ function dynamicEnglish(text){
   if((m=s.match(/^(\d+)月$/)))return `${m[1]} mo`;
   if((m=s.match(/^(\d+) 月，共 (\d+) 筆紀錄$/)))return `Month ${m[1]} · ${m[2]} records`;
   if((m=s.match(/^(\d+) 筆$/)))return `${m[1]} records`;
+  if((m=s.match(/^(\d+) \/ (\d+) 筆 · 目前顯示 (\d+)(?: · 目前地圖範圍)?$/))){
+    return `${m[1]} / ${m[2]} records · showing ${m[3]}${s.includes("目前地圖範圍")?" · current map extent":""}`;
+  }
   if((m=s.match(/^(\d+) \/ (\d+) 筆(?: · 目前地圖範圍)?$/))){
     return `${m[1]} / ${m[2]} records${s.includes("目前地圖範圍")?" · current map extent":""}`;
   }
@@ -305,6 +310,9 @@ function dynamicEnglish(text){
   if((m=s.match(/^FieldScout 直線路徑估計：([\d.]+) km$/)))return `FieldScout straight-line estimate: ${m[1]} km`;
   if((m=s.match(/^加入：(.+)$/)))return `Add to: ${m[1]}`;
   if((m=s.match(/^座標來源：(.+)$/)))return `Coordinate source: ${m[1]}`;
+  if((m=s.match(/^目前有 (\d+) 筆篩選結果，全部加入可能讓行程非常龐大。仍要繼續嗎？$/))){
+    return `There are ${m[1]} filtered records. Adding all of them may create a very large Trip. Continue?`;
+  }
 
   if(s.startsWith("QC：")){
     const issueMap={
@@ -320,6 +328,13 @@ function dynamicEnglish(text){
   }
 
   // Common runtime messages with user/data substitutions.
+  const searchSuffixEnglish=value=>String(value||"")
+    .replace(/；快取補足：([^；]+)/g,"; cached fallback: $1")
+    .replace(/；本次不可用：([^；]+)/g,"; unavailable this time: $1")
+    .replace(/；部分載入：([^；]+)/g,"; partially loaded: $1")
+    .replace(/；已達來源官方上限：([^；]+)/g,"; source's official limit reached: $1")
+    .replace(/；搜尋已取消，保留已載入結果/g,"; search cancelled, keeping loaded results")
+    .replace(/；已達 API 單次載入上限：([^；]+)/g,"; API load limit reached: $1");
   const patterns=[
     [/^已建立行程「(.+)」。$/,m=>`Created Trip “${m[1]}”.`],
     [/^已自動建立行程「(.+)」。$/,m=>`Automatically created Trip “${m[1]}”.`],
@@ -336,9 +351,10 @@ function dynamicEnglish(text){
     [/^已使用行程點「(.+)」的座標。$/,m=>`Using coordinates from Trip Point “${m[1]}”.`],
     [/^採集紀錄已儲存並綁定「(.+)」。$/,m=>`Field record saved and linked to “${m[1]}”.`],
     [/^快速紀錄：已綁定 (.+)。儲存後會回到「野外」頁。$/,m=>`Quick record linked to ${m[1]}. After saving, you will return to Field.`],
-    [/^整合 (\d+) 筆；GBIF (\d+)、iNaturalist (\d+)(.*)$/,m=>`Merged ${m[1]} records · GBIF ${m[2]} · iNaturalist ${m[3]}${m[4]||""}`],
-    [/^(.+)：整合 (\d+) 筆；GBIF (\d+)、iNaturalist (\d+)(.*)$/,m=>`${m[1]}: merged ${m[2]} records · GBIF ${m[3]} · iNaturalist ${m[4]}${m[5]||""}`],
+    [/^整合 (\d+) 筆；GBIF (\d+)、iNaturalist (\d+)(.*)$/,m=>`Merged ${m[1]} records · GBIF ${m[2]} · iNaturalist ${m[3]}${searchSuffixEnglish(m[4])}`],
+    [/^(.+)：整合 (\d+) 筆；GBIF (\d+)、iNaturalist (\d+)(.*)$/,m=>`${m[1]}: merged ${m[2]} records · GBIF ${m[3]} · iNaturalist ${m[4]}${searchSuffixEnglish(m[5])}`],
     [/^正在查詢 GBIF、iNaturalist…$/,()=>`Searching GBIF and iNaturalist…`],
+    [/^正在逐頁查詢 GBIF、iNaturalist…$/,()=>`Searching GBIF and iNaturalist page by page…`],
     [/^已載入 (.+) 快取的 (\d+) 筆紀錄。$/,m=>`Loaded ${m[2]} cached records from ${m[1]}.`],
     [/^目前無法連線，已載入 (.+) 快取的 (\d+) 筆紀錄。$/,m=>`Offline: loaded ${m[2]} cached records from ${m[1]}.`],
     [/^搜尋失敗，且此物種尚無本機快取：(.*)$/,m=>`Search failed and no local cache exists for this taxon: ${m[1]}`],
@@ -362,6 +378,8 @@ function dynamicEnglish(text){
   const exactStatus={
     "請輸入有效電子郵件。":"Please enter a valid email address.",
     "正在開啟…":"Opening…",
+    "正在停止搜尋…":"Stopping the search…",
+    "搜尋已取消；原本的搜尋結果已保留。":"Search cancelled; the previous results were kept.",
     "無法開啟本機資料：":"Unable to open local data: ",
     "已顯示全部月份。":"Showing all months.",
     "已取消月份篩選。":"Month filter cleared.",
@@ -514,7 +532,7 @@ export function initI18n(lang){
   applyTranslations(document);
 }
 
-// v1.0.0 intentionally avoids MutationObserver.
+// Translation is applied explicitly; MutationObserver is intentionally avoided.
 // Dynamic UI is translated explicitly after each rendering step.
 
 export function t(key,fallback=""){
