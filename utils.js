@@ -117,7 +117,13 @@ export function gpxTrack(points,name="FieldScout Track"){
       String(p.lat).trim()!==""&&String(p.lon).trim()!==""&&
       Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180&&Number.isFinite(time);
   });
-  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${xmlEscape(name)}</name><trkseg>${valid.map(p=>`<trkpt lat="${Number(p.lat)}" lon="${Number(p.lon)}"><time>${new Date(p.time).toISOString()}</time></trkpt>`).join("")}</trkseg></trk></gpx>`;
+  const segments=[];
+  for(const p of valid){
+    const last=segments[segments.length-1];
+    if(!last||last.id!==(p.segmentId||"legacy"))segments.push({id:p.segmentId||"legacy",points:[p]});
+    else last.points.push(p);
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="FieldScout" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${xmlEscape(name)}</name>${segments.map(s=>`<trkseg>${s.points.map(p=>`<trkpt lat="${Number(p.lat)}" lon="${Number(p.lon)}"><time>${new Date(p.time).toISOString()}</time></trkpt>`).join("")}</trkseg>`).join("")}</trk></gpx>`;
 }
 export function parseGpx(text){
   const d=new DOMParser().parseFromString(text,"application/xml");

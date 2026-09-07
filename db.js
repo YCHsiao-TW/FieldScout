@@ -46,6 +46,11 @@ export async function storeExists(store){
 }
 
 export async function put(store,obj){
+  // Trip edits must not erase GPS samples committed by an earlier queued write.
+  if(store==="trips"){
+    await putManyAtomic({trips:[obj]},{profileId:obj.profileId,preserveTrack:true});
+    return obj;
+  }
   const db=await openCurrentDb();
   try{
     if(!hasStore(db,store))throw new Error(`IndexedDB store 不存在：${store}`);
@@ -59,7 +64,17 @@ export async function put(store,obj){
   }finally{db.close()}
 }
 
-export async function putManyAtomic(entriesByStore){
+export function mergeTrackPoints(existing=[],incoming=[]){
+  const seen=new Set();
+  return [...existing,...incoming].filter(p=>{
+    const key=p.id||JSON.stringify([p.time,p.lat,p.lon,p.accuracy,p.segmentId||""]);
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function putManyAtomic(entriesByStore,{profileId=null,preserveTrack=false}={}){
   const entries=Object.entries(entriesByStore||{})
     .map(([store,items])=>[store,Array.isArray(items)?items:[]])
     .filter(([,items])=>items.length>0);
@@ -70,6 +85,7 @@ export async function putManyAtomic(entriesByStore){
       if(!item||typeof item!=="object"||item.id===null||item.id===undefined||String(item.id).trim()===""){
         throw new Error(`無法寫入 ${store}：資料缺少 id`);
       }
+      if(profileId!==null&&item.profileId!==profileId)throw new Error("資料不屬於目前工作空間");
     }
   }
 
@@ -82,13 +98,53 @@ export async function putManyAtomic(entriesByStore){
 
     await new Promise((resolve,reject)=>{
       const t=db.transaction(stores,"readwrite");
-      for(const [store,items] of entries){
-        const objectStore=t.objectStore(store);
-        for(const item of items)objectStore.put(item);
-      }
+      let failure=null;
+      const abort=error=>{failure=error;try{t.abort()}catch(_){} };
       t.oncomplete=()=>resolve();
-      t.onerror=()=>reject(t.error||new Error("批次寫入失敗"));
-      t.onabort=()=>reject(t.error||new Error("批次寫入已中止"));
+      t.onerror=()=>reject(failure||t.error||new Error("批次寫入失敗"));
+      t.onabort=()=>reject(failure||t.error||new Error("批次寫入已中止"));
+      try{
+        for(const [store,items] of entries){
+          const objectStore=t.objectStore(store);
+          for(const item of items){
+            const request=objectStore.get(item.id);
+            request.onsuccess=()=>{
+              try{
+                const previous=request.result;
+                if(profileId!==null&&previous&&previous.profileId!==profileId){
+                  throw new Error(`資料 ID 已屬於其他工作空間：${item.id}`);
+                }
+                const value=preserveTrack&&store==="trips"&&previous
+                  ? {...item,track:mergeTrackPoints(previous.track||[],item.track||[])}
+                  : item;
+                objectStore.put(value);
+              }catch(error){abort(error)}
+            };
+          }
+        }
+      }catch(error){abort(error)}
+    });
+  }finally{db.close()}
+}
+
+// Read-modify-write in one transaction, bound to the trip where recording began.
+export async function appendTripTrack(profileId,tripId,points){
+  const db=await openCurrentDb();
+  try{
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction("trips","readwrite"),store=tx.objectStore("trips");
+      let failure=null;
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(failure||tx.error||new Error("GPS 儲存失敗"));
+      tx.onabort=()=>reject(failure||tx.error||new Error("GPS 儲存已中止"));
+      const request=store.get(tripId);
+      request.onsuccess=()=>{
+        try{
+          const trip=request.result;
+          if(!trip||trip.profileId!==profileId)throw new Error("GPS 行程不存在或屬於其他工作空間");
+          store.put({...trip,track:mergeTrackPoints(trip.track||[],points),updatedAt:new Date().toISOString()});
+        }catch(error){failure=error;tx.abort()}
+      };
     });
   }finally{db.close()}
 }
@@ -132,7 +188,20 @@ export async function all(store){
 }
 
 export async function byProfile(store,profileId){
-  return (await all(store)).filter(x=>x.profileId===profileId);
+  const db=await openCurrentDb();
+  try{
+    if(!hasStore(db,store))return [];
+    return await new Promise((resolve,reject)=>{
+      const items=[],request=db.transaction(store,"readonly").objectStore(store).openCursor();
+      request.onsuccess=()=>{
+        const cursor=request.result;
+        if(!cursor){resolve(items);return}
+        if(cursor.value.profileId===profileId)items.push(cursor.value);
+        cursor.continue();
+      };
+      request.onerror=()=>reject(request.error||new Error(`讀取 ${store} 失敗`));
+    });
+  }finally{db.close()}
 }
 
 export async function deleteProfileData(profileId){

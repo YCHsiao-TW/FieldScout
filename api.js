@@ -439,7 +439,7 @@ async function fetchAllINat(baseUrl,options={}){
   const source="iNaturalist";
   const pageSize=200;
   const records=[];
-  let fetched=0,total=null,page=1;
+  let fetched=0,total=null,page=1,cursor=null;
   reportProgress(options.onProgress,{source,loaded:0,fetched:0,total:null,page:0,status:"loading",done:false});
 
   try{
@@ -447,14 +447,28 @@ async function fetchAllINat(baseUrl,options={}){
       throwIfAborted(options.signal);
       const url=new URL(baseUrl);
       url.searchParams.set("per_page",String(pageSize));
-      url.searchParams.set("page",String(page));
+      url.searchParams.delete("page");
+      url.searchParams.set("order_by","id");
+      url.searchParams.set("order","desc");
+      if(cursor!==null)url.searchParams.set("id_below",String(cursor));
       const data=await fetchJsonWithRetry(url,options);
       const raw=Array.isArray(data?.results)?data.results:[];
+      // Page-number queries stop at 10,000. ID cursors keep each request in
+      // the first result window and also prevent page shifts from new records.
+      let nextCursor=cursor;
+      for(const row of raw){
+        const id=Number(row.id);
+        if(!Number.isSafeInteger(id)||id<=0||(nextCursor!==null&&id>=nextCursor)){
+          throw new Error("iNaturalist returned invalid or non-advancing observation IDs");
+        }
+        nextCursor=id;
+      }
       const normalized=raw.map(normalizeINat).filter(Boolean);
       records.push(...normalized);
       fetched+=raw.length;
       const reportedTotal=n(data?.total_results);
-      if(reportedTotal!==null)total=reportedTotal;
+      // Later totals describe only IDs below the cursor, not the original query.
+      if(page===1&&reportedTotal!==null)total=reportedTotal;
 
       if(raw.length===0&&total!==null&&fetched<total){
         throw new Error("iNaturalist returned an empty page before all records were available");
@@ -469,6 +483,7 @@ async function fetchAllINat(baseUrl,options={}){
       });
       if(complete)return {source,records,fetched,total,status:"ok",capped:false,error:null};
 
+      cursor=nextCursor;
       page++;
       // iNaturalist allows 100 requests/minute and asks clients to stay at or
       // below 60. A 1.1 second interval remains below that recommendation.
@@ -502,7 +517,7 @@ export async function occurrences(taxon,context={},options={}){
 
     inat.searchParams.set("geo","true");
     inat.searchParams.set("verifiable","true");
-    inat.searchParams.set("order_by","observed_on");
+    inat.searchParams.set("order_by","id");
     inat.searchParams.set("order","desc");
     return inat;
   };

@@ -1,9 +1,9 @@
-import {put,putManyAtomic,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.1.1";
-import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.1.1";
-import {taxonomy,occurrences,mergeOccurrences} from "./api.js?v=1.1.1";
-import {rankCandidates} from "./ranking.js?v=1.1.1";
-import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.1.1";
-import {BACKUP_IMAGE_TYPES,BACKUP_MAX_BYTES,BACKUP_PHOTO_MAX_BYTES,validateBackupDocument} from "./backup.js?v=1.1.1";
+import {put,putManyAtomic,appendTripTrack,get,del,byProfile,deleteProfileData,all} from "./db.js?v=1.1.2";
+import {hashEmail,esc,haversineKm,googleMapsUrl,googleMapsRouteUrl,googleMapsRouteSegments,downloadText,toCSV,geojsonPoints,gpxWaypoints,gpxTrack,parseGpx,sanitizeImage,obscurePoint,qcRecord} from "./utils.js?v=1.1.2";
+import {taxonomy,occurrences,mergeOccurrences} from "./api.js?v=1.1.2";
+import {rankCandidates} from "./ranking.js?v=1.1.2";
+import {initI18n,setLanguage,getLanguage,translateText,t,applyTranslations} from "./i18n.js?v=1.1.2";
+import {BACKUP_IMAGE_TYPES,BACKUP_PHOTO_MAX_BYTES,prepareBackupRestore,createBackupDownloads,readBackupFiles} from "./backup.js?v=1.1.2";
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const RESULT_BATCH_SIZE=200;
@@ -56,15 +56,18 @@ function searchContext(){
 const state={
   profile:null,settings:null,map:null,cluster:null,tripLayer:null,me:null,currentPos:null,
   taxon:null,allRecords:[],filtered:[],markerMap:new Map(),candidates:[],
-  trips:[],activeTrip:null,records:[],recordGps:null,track:[],trackWatch:null,
+  trips:[],activeTrip:null,records:[],recordGps:null,recordTripId:null,recordSaving:false,
+  track:[],trackWatch:null,trackStarting:false,trackGeneration:0,trackTripId:null,trackProfileId:null,
+  trackPending:[],trackSavePromise:null,trackSaveError:null,
+  backupBusy:false,backupUrls:[],
   baseLayers:{},activeBaseLayer:null,
   selectedOccurrenceId:null,selectedTripPointId:null,
   tripMarkerMap:new Map(),
   fieldModeIndex:0,fieldModeReturn:false,
   customPointDraft:null,customPointPickMode:false,customPointTempMarker:null,customPointPreviewMarker:null,
-  searchAbort:null,searchProgress:{},resultVisibleLimit:RESULT_BATCH_SIZE,
+  searchAbort:null,searchProgress:{},resultPage:0,
   markerRenderGeneration:0,markerRenderHandle:null,markerRenderedCount:0,
-  resultLoadMoreObserver:null
+  recordFormGeneration:0
 };
 const translateRoot=root=>{if(root)applyTranslations(root)};
 const setStatus=text=>{
@@ -351,12 +354,8 @@ function setupStatic(){
   $("#searchBtn").onclick=searchTaxon;
   $("#searchCancelBtn").onclick=cancelOccurrenceSearch;
   $("#resultLoadMoreBtn").onclick=loadMoreOccurrences;
-  if("IntersectionObserver" in window){
-    state.resultLoadMoreObserver=new IntersectionObserver(entries=>{
-      if(entries.some(entry=>entry.isIntersecting))loadMoreOccurrences();
-    },{root:$("#contentPane"),rootMargin:"350px 0px"});
-    state.resultLoadMoreObserver.observe($("#resultLoadMoreBtn"));
-  }
+  $("#resultPrevBtn").onclick=()=>showOccurrencePage(state.resultPage-1);
+  $("#resultPageInput").onchange=()=>showOccurrencePage(Number($("#resultPageInput").value)-1);
   $("#taxonInput").addEventListener("keydown",e=>{if(e.key==="Enter")searchTaxon()});
   let at=null;$("#taxonInput").addEventListener("input",()=>{clearTimeout(at);const q=$("#taxonInput").value.trim();if(q.length<2){$("#autocomplete").classList.add("hidden");return}at=setTimeout(()=>autocomplete(q),250)});
   $("#applyFiltersBtn").onclick=applyFilters;
@@ -398,6 +397,7 @@ function setupStatic(){
   $("#useTripPointGpsBtn").onclick=useTripPointGps;
   $("#nextSpecimenBtn").onclick=nextSpecimen;
   $("#recordForm").onsubmit=saveRecord;
+  $("#recordTrip").onchange=()=>renderRecordTripPointOptions("",$("#recordTrip").value);
   $("#cancelEditBtn").onclick=()=>{
     const returnToField=state.fieldModeReturn;
     resetRecordForm();
@@ -412,6 +412,13 @@ function setupStatic(){
   $("#switchProfileBtn").onclick=switchProfile;$("#profileBtn").onclick=()=>switchTab("settings");$("#deleteProfileBtn").onclick=deleteProfile;
   $("#modalClose").onclick=()=>$("#modal").classList.add("hidden");$("#modal").onclick=e=>{if(e.target===$("#modal"))$("#modal").classList.add("hidden")};
   window.addEventListener("online",()=>$("#netBadge").textContent="ONLINE");window.addEventListener("offline",()=>$("#netBadge").textContent="OFFLINE");
+  window.addEventListener("pagehide",()=>{flushTrack().catch(console.warn)});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)flushTrack().catch(console.warn)});
+  window.addEventListener("beforeunload",e=>{
+    if(state.recordSaving||state.backupBusy||state.trackStarting||state.trackPending.length){
+      e.preventDefault();e.returnValue="";
+    }
+  });
 }
 
 function switchTab(name){
@@ -573,16 +580,13 @@ function restoreSearchSnapshot(snapshot){
   state.allRecords=snapshot.allRecords;
   state.filtered=snapshot.filtered;
   state.candidates=snapshot.candidates;
-  state.resultVisibleLimit=snapshot.resultVisibleLimit;
+  state.resultPage=snapshot.resultPage;
   if(state.taxon)renderTaxon();
   else $("#taxonCard").classList.add("hidden");
   if(state.allRecords.length){
-    const previousVisibleLimit=state.resultVisibleLimit;
+    const previousPage=state.resultPage;
     applyFilters();
-    state.resultVisibleLimit=Math.min(
-      state.filtered.length,
-      Math.max(RESULT_BATCH_SIZE,previousVisibleLimit)
-    );
+    state.resultPage=previousPage;
     renderOccurrenceList();
   }
 }
@@ -642,7 +646,7 @@ async function searchTaxon(){
     allRecords:state.allRecords,
     filtered:state.filtered,
     candidates:state.candidates,
-    resultVisibleLimit:state.resultVisibleLimit
+    resultPage:state.resultPage
   };
   const controller=new AbortController();
   state.searchAbort=controller;
@@ -852,7 +856,7 @@ function applyFilters(){
   );
 
   state.filtered=l;
-  state.resultVisibleLimit=RESULT_BATCH_SIZE;
+  state.resultPage=0;
   renderOccurrences();
   rerank();
   renderMonthChart();
@@ -897,6 +901,7 @@ function occurrencePopupHtml(r){
     <div class="popup-actions">
       <a class="popup-nav" href="${googleMapsUrl(r.lat,r.lon)}" target="_blank" rel="noopener">Google Maps 導航</a>
       <button type="button" data-popup-add>加入行程</button>
+      <button type="button" data-popup-detail>詳情</button>
     </div>`;
 }
 
@@ -926,17 +931,20 @@ function createOccurrenceMarker(r){
   marker.on("popupopen",event=>{
     const button=event.popup.getElement()?.querySelector("[data-popup-add]");
     if(button)button.onclick=()=>addToTrip(r);
+    const detail=event.popup.getElement()?.querySelector("[data-popup-detail]");
+    if(detail)detail.onclick=()=>showOccurrenceDetail(r);
   });
   return marker;
 }
 
 function updateOccurrenceResultMeta(){
   const filteredCount=state.filtered.length;
-  const listCount=Math.min(filteredCount,state.resultVisibleLimit);
+  const start=state.resultPage*RESULT_BATCH_SIZE;
+  const end=Math.min(filteredCount,start+RESULT_BATCH_SIZE);
   const mapCount=Math.min(filteredCount,state.markerRenderedCount);
   const mapBounds=$("#filterMapBounds")?.checked&&state.map;
   $("#resultMeta").textContent=
-    `${filteredCount} / ${state.allRecords.length} 筆 · 地圖已載入 ${mapCount} / ${filteredCount} · 清單顯示 ${listCount} / ${filteredCount}`+
+    `${filteredCount} / ${state.allRecords.length} 筆 · 地圖已載入 ${mapCount} / ${filteredCount} · 清單 ${filteredCount?start+1:0}–${end} / ${filteredCount}`+
     `${mapBounds?" · 目前地圖範圍":""}`;
   translateRoot($("#resultMeta"));
 }
@@ -1001,14 +1009,17 @@ function renderOccurrenceMap(records=state.filtered){
 }
 
 function renderOccurrenceList(){
-  const visible=state.filtered.slice(0,state.resultVisibleLimit);
+  const pages=Math.max(1,Math.ceil(state.filtered.length/RESULT_BATCH_SIZE));
+  state.resultPage=Math.min(pages-1,Math.max(0,Math.trunc(state.resultPage)||0));
+  const start=state.resultPage*RESULT_BATCH_SIZE;
+  const visible=state.filtered.slice(start,start+RESULT_BATCH_SIZE);
   $("#resultList").innerHTML=visible.length
     ? visible.map((r,i)=>{
         const img=(r.imageUrls||[])[0];
         return `<article class="card ${state.selectedOccurrenceId===r.id?"selected":""}" data-card="${esc(r.id)}">
           <div class="occ-card-layout">
             ${img
-              ? `<div class="occ-thumb-wrap"><img class="occ-thumb" data-occ-thumb src="${esc(img)}" alt="${esc(r.commonName||r.scientificName||"occurrence")}"></div>`
+              ? `<div class="occ-thumb-wrap"><img class="occ-thumb" loading="lazy" data-occ-thumb src="${esc(img)}" alt="${esc(r.commonName||r.scientificName||"occurrence")}"></div>`
               : `<div class="occ-card-no-image">No image</div>`}
             <div>
               <div class="card-top">
@@ -1052,7 +1063,12 @@ function renderOccurrenceList(){
     state.selectedOccurrenceId=null;
   }
   const loadMore=$("#resultLoadMoreBtn");
-  if(loadMore)loadMore.classList.toggle("hidden",visible.length>=state.filtered.length);
+  if(loadMore)loadMore.disabled=state.resultPage>=pages-1;
+  $("#resultPrevBtn").disabled=state.resultPage===0;
+  $("#resultPager").classList.toggle("hidden",!state.filtered.length);
+  $("#resultPageInput").value=state.resultPage+1;
+  $("#resultPageInput").max=pages;
+  $("#resultPageCount").textContent=`/ ${pages}`;
   updateOccurrenceResultMeta();
   applyOccurrenceListSelection();
   translateRoot(loadMore);
@@ -1068,12 +1084,12 @@ function renderOccurrences(){
 }
 
 function loadMoreOccurrences(){
-  if(state.resultVisibleLimit>=state.filtered.length)return;
-  state.resultVisibleLimit=Math.min(
-    state.filtered.length,
-    state.resultVisibleLimit+RESULT_BATCH_SIZE
-  );
+  showOccurrencePage(state.resultPage+1);
+}
+function showOccurrencePage(page){
+  state.resultPage=Number.isFinite(page)?page:0;
   renderOccurrenceList();
+  $("#resultList").scrollIntoView({block:"start"});
 }
 function showOccurrenceDetail(r){
   const uniqueLinks=[...new Set((r.sourceUrls||[]).filter(Boolean))];
@@ -1133,6 +1149,13 @@ function applyOccurrenceSelection(){
 
 function selectOccurrence(id,scroll=false){
   state.selectedOccurrenceId=id||null;
+  if(id&&scroll){
+    const index=state.filtered.findIndex(r=>r.id===id);
+    if(index>=0&&Math.floor(index/RESULT_BATCH_SIZE)!==state.resultPage){
+      state.resultPage=Math.floor(index/RESULT_BATCH_SIZE);
+      renderOccurrenceList();
+    }
+  }
   applyOccurrenceSelection();
 
   if(!id)return;
@@ -1305,7 +1328,7 @@ async function ensureTrip(){
 }
 
 async function newTrip(){
-  if(state.trackWatch!=null){
+  if(trackBusy()){
     setStatus("請先停止 GPS Track 再切換或刪除行程。");
     return;
   }
@@ -1333,12 +1356,14 @@ async function newTrip(){
   await put("trips",t);
   state.trips.unshift(t);
   state.activeTrip=t;
+  state.track=[];
   renderTrips();
   setStatus(`已建立行程「${name}」。`);
 }
 
 function selectTrip(id){
-  if(state.trackWatch!=null && id!==state.activeTrip?.id){
+  if(id===state.activeTrip?.id)return true;
+  if(trackBusy()){
     setStatus("請先停止 GPS Track 再切換或刪除行程。");
     renderTrips();
     return false;
@@ -1373,7 +1398,7 @@ async function saveTripMeta(){
 async function deleteTripById(id){
   const trip=state.trips.find(t=>t.id===id);
   if(!trip)return false;
-  if(state.trackWatch!=null && state.activeTrip?.id===id){
+  if(trackBusy() && state.activeTrip?.id===id){
     setStatus("請先停止 GPS Track 再切換或刪除行程。");
     return false;
   }
@@ -1696,14 +1721,19 @@ async function setFieldPointStatus(status){
 }
 
 function quickRecordFromFieldMode(){
+  if(state.recordSaving||state.backupBusy)return;
   const p=currentFieldModePoint();
   if(!p||!state.activeTrip)return;
+  if(($("#recordId").value||$("#specimenId").value.trim()||$("#recordTaxon").value.trim()||
+    $("#recordNotes").value.trim()||$("#recordPhotos").files.length||state.recordGps)&&
+    !confirm(translateText("放棄目前表單的未儲存內容，建立新的快速紀錄？")))return;
+  resetRecordForm();
 
   state.fieldModeReturn=true;
   state.selectedTripPointId=p.id;
 
   switchTab("records");
-  renderRecordTripPointOptions(p.id);
+  renderRecordTripPointOptions(p.id,state.activeTrip.id);
   $("#recordTripPoint").value=p.id;
 
   if(!$("#recordTaxon").value.trim()){
@@ -2756,55 +2786,114 @@ function renderTrackMeta(){
     const accuracy=latest?.accuracy==null?null:Math.round(Number(latest.accuracy));
     meta.textContent=`記錄中 · ${state.track.length} 點${Number.isFinite(accuracy)?` · ±${accuracy} m`:""}`;
   }else{
-    meta.textContent=state.track.length
+    meta.textContent=state.trackPending.length
+      ? `待儲存 · ${state.trackPending.length} 點；請按停止重試`
+      : state.track.length
       ? `已儲存 · ${state.track.length} 點`
       : "尚未開始";
   }
+  if(state.trackSaveError)meta.textContent+=" · GPS 儲存失敗";
 
-  $("#trackStartBtn").disabled=state.trackWatch!=null;
-  $("#trackStopBtn").disabled=state.trackWatch==null;
+  $("#trackStartBtn").disabled=trackBusy();
+  $("#trackStopBtn").disabled=state.trackWatch==null&&!state.trackPending.length;
   $("#trackExportBtn").disabled=state.track.length===0;
   translateRoot(meta);
 }
 
-function startTrack(){
+function trackBusy(){
+  return state.trackWatch!=null||state.trackStarting||state.trackPending.length>0||Boolean(state.trackSavePromise);
+}
+
+function flushTrack(){
+  if(state.trackSavePromise)return state.trackSavePromise;
+  if(!state.trackPending.length)return Promise.resolve(true);
+  const profileId=state.trackProfileId,tripId=state.trackTripId;
+  state.trackSavePromise=(async()=>{
+    while(state.trackPending.length){
+      const batch=[...state.trackPending];
+      await appendTripTrack(profileId,tripId,batch);
+      const saved=new Set(batch.map(p=>p.id));
+      state.trackPending=state.trackPending.filter(p=>!saved.has(p.id));
+      state.trackSaveError=null;
+    }
+    return true;
+  })().catch(error=>{
+    state.trackSaveError=error;
+    setStatus("GPS 儲存失敗，請保留頁面並按停止重試："+error.message);
+    return false;
+  }).finally(()=>{
+    state.trackSavePromise=null;
+    renderTrackMeta();
+  });
+  return state.trackSavePromise;
+}
+
+async function startTrack(){
+  if(trackBusy()||state.backupBusy||state.recordSaving)return false;
   if(!navigator.geolocation){
     setStatus("此裝置不支援 GPS Track。");
     return;
   }
-  state.track=[];
-  state.trackWatch=navigator.geolocation.watchPosition(
-    p=>{
-      state.currentPos={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy};
-      state.track.push({
-        lat:p.coords.latitude,
-        lon:p.coords.longitude,
-        accuracy:p.coords.accuracy,
-        time:Date.now()
-      });
-      renderFieldMode();
-    },
-    e=>{
-      if(e.code===1 && state.trackWatch!=null){
-        navigator.geolocation.clearWatch(state.trackWatch);
-        state.trackWatch=null;
-        renderTrackMeta();
-      }
-      setStatus("GPS Track："+e.message);
-    },
-    {enableHighAccuracy:true,maximumAge:0,timeout:20000}
-  );
-  renderTrackMeta();
+  state.trackStarting=true;
+  const generation=++state.trackGeneration;
+  try{
+    const trip=await ensureTrip();
+    if(generation!==state.trackGeneration)return false;
+    state.track=[...(trip.track||[])];
+    state.trackTripId=trip.id;
+    state.trackProfileId=state.profile.id;
+    state.trackSaveError=null;
+    const segmentId=crypto.randomUUID();
+    state.trackWatch=navigator.geolocation.watchPosition(
+      p=>{
+        if(generation!==state.trackGeneration||state.trackTripId!==trip.id||state.profile.id!==state.trackProfileId)return;
+        const lat=p.coords.latitude,lon=p.coords.longitude;
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180)return;
+        state.currentPos={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy};
+        const point={
+          id:crypto.randomUUID(),segmentId,
+          lat:p.coords.latitude,
+          lon:p.coords.longitude,
+          accuracy:p.coords.accuracy,
+          time:Number.isFinite(p.timestamp)?p.timestamp:Date.now()
+        };
+        state.track.push(point);
+        const currentTrip=state.trips.find(t=>t.id===trip.id);
+        if(currentTrip)currentTrip.track=[...state.track];
+        if(state.activeTrip?.id===trip.id)state.activeTrip.track=[...state.track];
+        state.trackPending.push(point);
+        flushTrack();
+        renderFieldMode();
+      },
+      e=>{
+        if(e.code===1 && state.trackWatch!=null){
+          navigator.geolocation.clearWatch(state.trackWatch);
+          state.trackWatch=null;
+          state.trackGeneration++;
+          flushTrack();
+          renderTrackMeta();
+        }
+        setStatus("GPS Track："+e.message);
+      },
+      {enableHighAccuracy:true,maximumAge:0,timeout:20000}
+    );
+    return true;
+  }catch(error){
+    setStatus("GPS Track："+error.message);
+    return false;
+  }finally{
+    state.trackStarting=false;
+    renderTrackMeta();
+  }
 }
 
 async function stopTrack(){
+  state.trackGeneration++;
   if(state.trackWatch!=null)navigator.geolocation.clearWatch(state.trackWatch);
   state.trackWatch=null;
-  if(state.activeTrip){
-    state.activeTrip.track=[...state.track];
-    await saveTrip();
-  }
+  const saved=await flushTrack();
   renderTrackMeta();
+  return saved;
 }
 
 function activeTripPointById(id){
@@ -2812,7 +2901,11 @@ function activeTripPointById(id){
   return (state.activeTrip.points||[]).find(p=>String(p.id)===String(id))||null;
 }
 
-function renderRecordTripPointOptions(selectedValue=null){
+function recordTrip(){
+  return state.trips.find(trip=>trip.id===state.recordTripId)||null;
+}
+
+function renderRecordTripPointOptions(selectedValue=null,tripId=state.recordTripId){
   const sel=$("#recordTripPoint");
   if(!sel)return;
 
@@ -2820,7 +2913,13 @@ function renderRecordTripPointOptions(selectedValue=null){
     ? String(selectedValue||"")
     : String(sel.value||"");
 
-  const pts=state.activeTrip?.points||[];
+  state.recordTripId=tripId===null?(state.activeTrip?.id||""):tripId;
+  if(!recordTrip())state.recordTripId="";
+  const tripSelect=$("#recordTrip");
+  tripSelect.innerHTML=`<option value="">未綁定行程</option>`+
+    state.trips.map(trip=>`<option value="${esc(trip.id)}">${esc(trip.name)}</option>`).join("");
+  tripSelect.value=state.recordTripId;
+  const pts=recordTrip()?.points||[];
   sel.innerHTML=
     `<option value="">未綁定行程點</option>`+
     pts.map((p,i)=>`
@@ -2828,12 +2927,13 @@ function renderRecordTripPointOptions(selectedValue=null){
         ${pointLabel(i)}. ${esc(p.name||"Point")} · ${esc(statusLabel(p.visitStatus))}
       </option>`).join("");
 
-  if(pts.some(p=>String(p.id)===current))sel.value=current;
+  sel.value=pts.some(p=>String(p.id)===current)?current:"";
+  translateRoot(tripSelect);
   translateRoot(sel);
 }
 
 function useTripPointGps(){
-  const p=activeTripPointById($("#recordTripPoint").value);
+  const p=recordTrip()?.points?.find(p=>String(p.id)===$("#recordTripPoint").value);
   if(!p){
     setStatus("請先選擇一個行程採集點。");
     return;
@@ -2848,12 +2948,15 @@ function useTripPointGps(){
 }
 
 function captureRecordGps(){
+  if(state.recordSaving)return;
   if(!navigator.geolocation){
     setStatus("此裝置不支援 GPS。");
     return;
   }
+  const generation=state.recordFormGeneration;
   navigator.geolocation.getCurrentPosition(
     p=>{
+      if(generation!==state.recordFormGeneration||state.recordSaving)return;
       state.recordGps={
         lat:p.coords.latitude,
         lon:p.coords.longitude,
@@ -2884,90 +2987,111 @@ function renderRecordGps(){
 async function nextSpecimen(){const p=state.settings.specimenPrefix||"FS",n=state.settings.specimenCounter||1;$("#specimenId").value=`${p}${String(n).padStart(5,"0")}`;state.settings.specimenCounter=n+1;$("#specimenCounter").value=state.settings.specimenCounter;await put("settings",state.settings)}
 async function saveRecord(e){
   e.preventDefault();
-
-  const id=$("#recordId").value||crypto.randomUUID();
-  const old=state.records.find(r=>r.id===id);
-  const files=[...$("#recordPhotos").files];
-  const photoIds=[...(old?.photoIds||[])];
-
-  for(const f of files){
-    const blob=await sanitizeImage(f);
-    const pid=crypto.randomUUID();
-    await put("photos",{
-      id:pid,
-      profileId:state.profile.id,
-      recordId:id,
-      blob,
-      createdAt:new Date().toISOString()
-    });
-    photoIds.push(pid);
-  }
-
-  const tripPointId=$("#recordTripPoint").value||null;
-  const linkedPoint=activeTripPointById(tripPointId);
-
-  const r={
-    id,
-    profileId:state.profile.id,
-    countryCode:state.profile?.countryCode||"",
-    specimenId:$("#specimenId").value.trim(),
-    count:Math.max(1,+$("#recordCount").value||1),
-    taxon:$("#recordTaxon").value.trim(),
-    microhabitat:$("#microhabitat").value,
-    method:$("#method").value,
-    notes:$("#recordNotes").value.trim(),
-    lat:state.recordGps?.lat??old?.lat??linkedPoint?.lat??null,
-    lon:state.recordGps?.lon??old?.lon??linkedPoint?.lon??null,
-    accuracyM:state.recordGps?.accuracyM??old?.accuracyM??null,
-    batchSiteId:old?.batchSiteId||null,
-    tripId:tripPointId?(state.activeTrip?.id||old?.tripId||null):null,
-    tripPointId,
-    photoIds,
-    createdAt:old?.createdAt||new Date().toISOString(),
-    updatedAt:new Date().toISOString()
-  };
-
-  await put("records",r);
-  state.records=state.records.filter(x=>x.id!==id);
-  state.records.unshift(r);
-
-  // A field record linked to a target means the site has at least been surveyed.
-  if(linkedPoint && state.activeTrip){
-    if(["unvisited","arrived"].includes(linkedPoint.visitStatus||"unvisited")){
-      linkedPoint.visitStatus="surveyed";
-      linkedPoint.surveyedAt=new Date().toISOString();
-      await saveTrip();
+  if(state.recordSaving||state.backupBusy)return false;
+  state.recordSaving=true;
+  const controls=[...$("#recordForm").querySelectorAll("input,select,textarea,button")];
+  const disabled=controls.map(el=>el.disabled);
+  controls.forEach(el=>{el.disabled=true});
+  const returnToField=state.fieldModeReturn;
+  try{
+    const id=$("#recordId").value||crypto.randomUUID();
+    const old=state.records.find(r=>r.id===id);
+    const files=[...$("#recordPhotos").files];
+    const photoIds=[...(old?.photoIds||[])];
+    const profileId=state.profile.id;
+    const tripPointId=$("#recordTripPoint").value||null;
+    const tripId=recordTrip()?.id||null;
+    let linkedTrip=state.trips.find(trip=>trip.id===tripId);
+    let linkedPoint=linkedTrip?.points?.find(p=>String(p.id)===tripPointId);
+    if(tripPointId&&!linkedPoint)throw new Error("行程點已不存在，請重新選擇");
+    const gps=state.recordGps?{...state.recordGps}:null;
+    const r={
+      id,
+      profileId,
+      countryCode:state.profile?.countryCode||"",
+      specimenId:$("#specimenId").value.trim(),
+      count:Math.max(1,+$("#recordCount").value||1),
+      taxon:$("#recordTaxon").value.trim(),
+      microhabitat:$("#microhabitat").value,
+      method:$("#method").value,
+      notes:$("#recordNotes").value.trim(),
+      lat:gps?gps.lat:old?.lat??linkedPoint?.lat??null,
+      lon:gps?gps.lon:old?.lon??linkedPoint?.lon??null,
+      accuracyM:gps?gps.accuracyM??null:old?.accuracyM??null,
+      batchSiteId:old?.batchSiteId||null,
+      tripId,
+      tripPointId,
+      photoIds,
+      createdAt:old?.createdAt||new Date().toISOString(),
+      updatedAt:new Date().toISOString()
+    };
+    if(!r.specimenId)throw new Error("請填寫標本／紀錄號");
+    const photos=[];
+    for(const file of files){
+      const blob=await sanitizeImage(file);
+      if(!blob||blob.size>BACKUP_PHOTO_MAX_BYTES)throw new Error("照片處理後仍超過 15 MB");
+      const pid=crypto.randomUUID();
+      photos.push({id:pid,profileId,recordId:id,blob,createdAt:new Date().toISOString()});
+      photoIds.push(pid);
     }
-  }
+    // Re-read the selected trip after asynchronous image work, before one commit.
+    linkedTrip=state.trips.find(trip=>trip.id===tripId);
+    linkedPoint=linkedTrip?.points?.find(p=>String(p.id)===tripPointId);
+    if(state.profile.id!==profileId||tripId&&!linkedTrip||tripPointId&&!linkedPoint)throw new Error("行程或工作空間已變更，請重新確認");
+    let updatedTrip=null;
+    if(linkedPoint&&["unvisited","arrived"].includes(linkedPoint.visitStatus||"unvisited")){
+      updatedTrip={...linkedTrip,updatedAt:new Date().toISOString(),points:linkedTrip.points.map(p=>
+        p===linkedPoint?{...p,visitStatus:"surveyed",surveyedAt:new Date().toISOString()}:p)};
+    }
+    await putManyAtomic({records:[r],photos,trips:updatedTrip?[updatedTrip]:[]},{profileId,preserveTrack:true});
+    state.records=state.records.filter(x=>x.id!==id);
+    state.records.unshift(r);
+    if(updatedTrip){
+      // GPS may have advanced while the transaction was pending.
+      updatedTrip.track=linkedTrip.track;
+      state.trips=state.trips.map(trip=>trip.id===updatedTrip.id?updatedTrip:trip);
+      if(state.activeTrip?.id===updatedTrip.id)state.activeTrip=updatedTrip;
+    }
+    resetRecordForm();
+    renderRecords();
+    renderTrips();
+    setStatus(linkedPoint
+      ? `採集紀錄已儲存並綁定「${linkedPoint.name}」。`
+      : "採集紀錄已儲存。");
 
-  resetRecordForm();
-  renderRecords();
-  renderTrips();
-  setStatus(linkedPoint
-    ? `採集紀錄已儲存並綁定「${linkedPoint.name}」。`
-    : "採集紀錄已儲存。");
-
-  if(state.fieldModeReturn && linkedPoint){
-    state.fieldModeReturn=false;
-    const pts=fieldModePoints();
-    const idx=pts.findIndex(p=>p.id===linkedPoint.id);
-    if(idx>=0)state.fieldModeIndex=idx;
-    switchTab("field");
-    renderFieldMode();
+    if(returnToField && linkedPoint&&state.activeTrip?.id===tripId){
+      const pts=fieldModePoints();
+      const idx=pts.findIndex(p=>p.id===linkedPoint.id);
+      if(idx>=0)state.fieldModeIndex=idx;
+      switchTab("field");
+      renderFieldMode();
+    }
+    return true;
+  }catch(error){
+    setStatus("採集紀錄儲存失敗，表單已保留："+error.message);
+    return false;
+  }finally{
+    state.recordSaving=false;
+    controls.forEach((el,i)=>{el.disabled=disabled[i]});
   }
 }
 
 function resetRecordForm(){
+  state.recordFormGeneration++;
   $("#recordForm").reset();
   $("#recordCount").value=1;
   $("#recordId").value="";
   state.recordGps=null;
+  state.fieldModeReturn=false;
+  state.recordTripId=state.activeTrip?.id||"";
   renderRecordGps();
   renderRecordTripPointOptions("");
   $("#saveRecordBtn").textContent="儲存紀錄";
   $("#cancelEditBtn").classList.add("hidden");
 }
 async function editRecord(r){
+  if(state.recordSaving||state.backupBusy)return;
+  resetRecordForm();
   switchTab("records");
   $("#recordId").value=r.id;
   $("#specimenId").value=r.specimenId;
@@ -2976,7 +3100,7 @@ async function editRecord(r){
   $("#microhabitat").value=r.microhabitat;
   $("#method").value=r.method;
   $("#recordNotes").value=r.notes||"";
-  renderRecordTripPointOptions(r.tripPointId||"");
+  renderRecordTripPointOptions(r.tripPointId||"",r.tripId||"");
   const lat=Number(r.lat),lon=Number(r.lon);
   const hasGps=
     r.lat!==null&&r.lat!==undefined&&r.lon!==null&&r.lon!==undefined&&
@@ -2991,7 +3115,7 @@ async function editRecord(r){
   $("#saveRecordBtn").textContent="更新紀錄";
   $("#cancelEditBtn").classList.remove("hidden");
 }
-async function deleteRecord(id){if(!confirm("刪除此紀錄？"))return;await del("records",id);const photos=(await byProfile("photos",state.profile.id)).filter(p=>p.recordId===id);for(const p of photos)await del("photos",p.id);state.records=state.records.filter(r=>r.id!==id);renderRecords()}
+async function deleteRecord(id){if(state.recordSaving||state.backupBusy||!confirm("刪除此紀錄？"))return;await del("records",id);const photos=(await byProfile("photos",state.profile.id)).filter(p=>p.recordId===id);for(const p of photos)await del("photos",p.id);state.records=state.records.filter(r=>r.id!==id);if($("#recordId").value===id)resetRecordForm();renderRecords()}
 function renderRecords(){
   $("#recordMeta").textContent=`${state.records.length} 筆`;
 
@@ -3146,50 +3270,78 @@ function renderMonthChart(){
 }
 
 
-async function exportBackup(){
-  const photos=await byProfile("photos",state.profile.id);
-  const photoData=[];
-  for(const p of photos){
-    const b64=await blobToBase64(p.blob);
-    photoData.push({...p,blob:null,dataUrl:b64});
+async function beginDataTransfer(){
+  if(state.backupBusy||state.recordSaving||state.trackStarting||state.searchAbort){
+    setStatus("請先完成儲存或停止搜尋，再進行備份／還原。");
+    return false;
   }
-  const caches=(await byProfile("cache",state.profile.id))
-    .filter(c=>c.kind!=="offline-map");
-  downloadText(
-    "fieldscout_backup.json",
-    "application/json",
-    JSON.stringify({
-      version:"1.1.1",
-      profile:state.profile,
-      settings:state.settings,
-      trips:state.trips,
-      records:state.records,
-      photos:photoData,
-      cache:caches,
-      exportedAt:new Date().toISOString()
-    },null,2)
-  );
+  if(trackBusy()&&!confirm(translateText("先停止並儲存 GPS Track，再進行備份／還原？")))return false;
+  state.backupBusy=true;
+  $("#app").inert=true;
+  if(!await stopTrack()){
+    state.backupBusy=false;$("#app").inert=false;return false;
+  }
+  return true;
+}
+
+function revokeBackupUrls(){
+  state.backupUrls.forEach(url=>URL.revokeObjectURL(url));
+  state.backupUrls=[];
+}
+
+async function exportBackup(){
+  if(!await beginDataTransfer())return false;
+  try{
+    const snapshot=structuredClone({profile:state.profile,settings:state.settings,trips:state.trips,records:state.records});
+    const photos=await byProfile("photos",state.profile.id);
+    const photoData=[];
+    for(const p of photos){
+      const b64=await blobToBase64(p.blob);
+      photoData.push({...p,blob:null,dataUrl:b64});
+    }
+    const caches=$("#backupIncludeCache").checked
+      ? (await byProfile("cache",state.profile.id)).filter(c=>c.kind!=="offline-map")
+      : [];
+    const files=await createBackupDownloads({
+        version:"1.1.2",
+        ...snapshot,
+        photos:photoData,
+        cache:caches,
+        exportedAt:new Date().toISOString()
+    });
+    revokeBackupUrls();
+    showModal(`<h2>下載備份</h2><p>請下載所有檔案；還原分檔備份時，請一次選取同一組全部檔案。</p>`+
+      files.map(file=>{
+        const url=URL.createObjectURL(file.blob);state.backupUrls.push(url);
+        return `<p><a class="nav-link" data-backup-download href="${url}" download="${esc(file.name)}">${esc(file.name)}</a> · ${(file.blob.size/1024/1024).toFixed(1)} MiB</p>`;
+      }).join(""));
+    if(files.length===1)$("[data-backup-download]")?.click();
+    setStatus("備份已準備，請下載並妥善保存所有檔案。");
+    return true;
+  }catch(error){
+    setStatus("備份失敗："+error.message);return false;
+  }finally{state.backupBusy=false;$("#app").inert=false}
 }
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 async function dataUrlToBlob(url){return await (await fetch(url)).blob()}
 
 async function restoreBackup(e){
-  const f=e.target.files?.[0];
-  if(!f)return;
+  const files=[...(e.target.files||[])];
+  if(!files.length)return;
+  if(!await beginDataTransfer()){e.target.value="";return false}
   const previousSettings=state.settings;
   try{
-    if(f.size>BACKUP_MAX_BYTES)throw new Error("Backup 超過 100 MB 上限");
-    const d=JSON.parse(await f.text());
-    const data=validateBackupDocument(d);
+    const d=await readBackupFiles(files);
     if(d.profile.id!==state.profile.id&&!confirm(`Backup 屬於 ${d.profile.email}，仍要匯入目前 profile？`))return;
-
-    const settings=d.settings?[{
-        ...d.settings,
-        id:`${state.profile.id}:settings`,
-        profileId:state.profile.id
-      }]:[];
-    const trips=data.trips.map(t=>({...t,profileId:state.profile.id}));
-    const records=data.records.map(r=>({...r,profileId:state.profile.id}));
+    const data=prepareBackupRestore(d,state.profile.id);
+    if(d.profile.id!==state.profile.id&&data.settings.length){
+      // Import copies into this workspace without replacing its preferences or
+      // removing existing custom points referenced by other trips.
+      data.settings=[{...state.settings,
+        id:`${state.profile.id}:settings`,profileId:state.profile.id,
+        customPoints:[...(state.settings.customPoints||[]),...data.settings[0].customPoints]
+      }];
+    }
     const photos=[];
     for(const p of data.photos){
       const {dataUrl,blob:ignoredBlob,...photo}=p;
@@ -3203,20 +3355,9 @@ async function restoreBackup(e){
         blob:converted
       });
     }
-    const cache=data.cache
-      .filter(c=>c.kind!=="offline-map")
-      .map(c=>{
-        const cacheName=String(c.taxon?.scientificName||c.query||c.id).toLowerCase();
-        return {
-          ...c,
-          id:`${state.profile.id}:occ:${cacheName}`,
-          profileId:state.profile.id
-        };
-      });
-
     // All conversion and validation happens before opening this transaction.
     // IndexedDB then commits every imported store together or none of them.
-    await putManyAtomic({settings,trips,records,photos,cache});
+    await putManyAtomic({...data,photos},{profileId:state.profile.id});
 
     state.settings=await get("settings",`${state.profile.id}:settings`)||previousSettings||{
       id:`${state.profile.id}:settings`,
@@ -3231,16 +3372,29 @@ async function restoreBackup(e){
       $("#uiLanguageSelect").value=getLanguage();
     }
     await loadProfileData();
+    resetRecordForm();
     renderAll();
     setStatus("Backup 還原完成。");
+    return true;
   }catch(err){
     setStatus("還原失敗："+err.message);
+    return false;
   }finally{
     e.target.value="";
+    state.backupBusy=false;$("#app").inert=false;
   }
 }
-function switchProfile(){location.reload()}
-async function deleteProfile(){if(!confirm(`永久刪除 ${state.profile.email} 在此瀏覽器的所有 FieldScout 資料？`))return;await deleteProfileData(state.profile.id);location.reload()}
+async function switchProfile(){
+  if(state.recordSaving||state.backupBusy||state.trackStarting)return;
+  if(trackBusy()&&!confirm(translateText("先停止並儲存 GPS Track，再切換工作空間？")))return;
+  if(await stopTrack())location.reload();
+}
+async function deleteProfile(){
+  if(state.recordSaving||state.backupBusy||state.trackStarting)return;
+  if(!confirm(`永久刪除 ${state.profile.email} 在此瀏覽器的所有 FieldScout 資料？`))return;
+  if(!await stopTrack())return;
+  await deleteProfileData(state.profile.id);location.reload();
+}
 function showModal(html){
   $("#modalBody").innerHTML=html;
   $("#modal").classList.remove("hidden");

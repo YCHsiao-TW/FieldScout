@@ -1,4 +1,4 @@
-# FieldScout v1.1.1
+# FieldScout v1.1.2
 
 FieldScout 是以手機操作為優先的 local-first 生物多樣性野外工作工具，將資料探索、探點、行程、導航與紀錄整合在同一個 PWA。
 
@@ -45,7 +45,7 @@ FieldScout 是以手機操作為優先的 local-first 生物多樣性野外工�
 
 - GBIF 依所選國家的 ISO code 篩選；Global 不套用 country filter。
 - iNaturalist 先解析國家 Place，再用 `place_id` 篩選；Global 不限制 Place。
-- FieldScout 會自動逐頁讀取 GBIF 與 iNaturalist，不再另設 300／200 筆的應用程式上限。
+- FieldScout 使用 GBIF 分頁與 iNaturalist observation ID 遞減接續讀取（`id_below`），不使用 iNaturalist 有筆數視窗限制的頁碼方式，也不另設應用程式總筆數上限。
 - 搜尋期間會分來源顯示已讀取筆數、有效座標數與完成狀態，並可隨時取消；取消後會保留先前結果，若已有部分新結果也不會無故丟失。
 - [GBIF Search API](https://techdocs.gbif.org/en/openapi/v1/occurrence) 的官方分頁上限是 100,000 筆；[iNaturalist API](https://www.inaturalist.org/pages/developers) 可取得量仍受服務、速率限制與網路狀況影響。極大型研究下載應改用資料來源提供的正式下載流程。
 - 兩個來源獨立查詢；其中一個暫時不可用時，另一個仍可顯示。
@@ -80,7 +80,7 @@ FieldScout 會以學名、日期與約四位小數座標做工作流程上的基
 
 排序可選距離最近、最新、最舊、座標精度最好或多來源支持。12 個月份柱狀圖顯示 record count，可點月份套用／取消篩選；這不是生物豐度。
 
-地圖 marker 與 occurrence card 會同步並持續高亮。地圖會在背景分批加入全部篩選點位，不再只顯示前 200 筆；清單為避免一次建立過多 DOM，每批建立 200 張卡片，捲動到底會自動載入下一批，也可按「載入更多清單紀錄」。結果列會分別顯示地圖載入數與清單顯示數；篩選、月份統計、候選排名、全部加入行程與 CSV／GeoJSON 匯出仍使用完整已載入結果。詳情視窗可查看原始圖片、metadata、授權、敏感資料標記、原始來源與 Google Maps。
+地圖在背景分批加入全部篩選點位；清單每頁最多 200 張卡片，可按上一頁／下一頁或直接輸入頁碼，避免 DOM 隨資料量無限增長。點選地圖會切到對應清單頁，marker 彈窗也能直接開啟詳情。分頁不限制總筆數；篩選、月份統計、候選排名、全部加入行程與 CSV／GeoJSON 匯出仍使用完整已載入結果。詳情可查看原始圖片、metadata、授權、敏感資料標記、原始來源與 Google Maps。
 
 ## 候選樣點排名
 
@@ -167,7 +167,7 @@ Trip Point 可來自 occurrence、candidate site、自訂採集點或 GPX waypoi
 - 標記已到達、完成調查、無法到達或再訪。
 - 顯示已處理數、進度條與下一個未完成目標；`surveyed` 與 `inaccessible` 計入進度。
 - 快速建立採集紀錄：自動綁定目前 Trip Point、帶入物種與點位座標，儲存後回到野外頁。
-- GPS Track 可開始、停止並保存到目前 Trip，包含 latitude、longitude、timestamp 與 accuracy，再匯出為 GPX track。
+- GPS Track 綁定開始時的 Trip，定位點會逐批自動保存；再次開始會新增段落，不覆蓋前段。GPX 匯出保留段落、latitude、longitude 與 timestamp，本機另保存 accuracy。若儲存失敗，未保存點會留在記憶體並提供停止按鈕重試，請勿直接關閉頁面。
 
 ## 採集／觀察紀錄
 
@@ -181,6 +181,8 @@ Trip Point 可來自 occurrence、candidate site、自訂採集點或 GPX waypoi
 - created／updated timestamp
 
 記錄可新增、編輯、刪除、在地圖定位、開啟 Google Maps 或查看照片。座標可直接讀現場 GPS，或使用已選 Trip Point 的規劃座標；兩者用途不同。
+
+紀錄表單可獨立選擇所屬行程與採集點；編輯時保留原關聯，不受目前導航行程影響。快速紀錄會建立新紀錄，已有表單內容時先詢問是否放棄。照片、紀錄與採集點狀態以單一交易儲存；禁止重複送出，失敗時保留表單。使用規劃座標時不沿用之前的 GPS 精度。
 
 若新紀錄綁定的目標原為 `unvisited` 或 `arrived`，儲存後會自動更新為 `surveyed`。
 
@@ -220,14 +222,15 @@ QC 是輸入檢查，不是物種鑑定或完整 Darwin Core 驗證。
 
 ### Backup JSON
 
-Backup 包含目前 Profile、settings、自訂點、Trips、field records、照片與 occurrence cache，不包含離線地圖。
+Backup 包含目前 Profile、settings、自訂點、Trips、field records 與照片；搜尋快取預設不包含，可勾選加入，不包含離線地圖。100 MiB 以內使用一般 JSON；較大的備份自動拆成附 SHA-256 校驗的多個 JSON 檔。請下載全部分檔，還原時一次選取同一組全部檔案，選取順序不限。處理備份仍需要足夠的瀏覽器記憶體與儲存空間。
 
 還原時會：
 
-1. 拒絕超過 100 MB 的檔案。
-2. 驗證版本、profile、資料陣列、ID 唯一性與照片 data URL。
+1. 每個輸入檔案上限為 100 MiB；分檔缺漏、重複、混組或校驗失敗時，在寫入前拒絕還原。
+2. 驗證版本、profile、資料陣列、ID 唯一性與照片 data URL，並可讀取支援版本的一般 JSON 備份。
 3. 將每張照片轉換並限制在 15 MB 內。
 4. 完成全部驗證後，以單一 IndexedDB transaction 寫入 settings、Trips、records、photos 與 cache；任一步驟失敗時不會留下半套匯入資料。
+5. 跨工作空間匯入時為行程、點位、紀錄及照片建立新 ID 並維持關聯，保留原工作空間資料，以及目的工作空間的設定與既有自訂點；不跨工作空間匯入國家搜尋快取。同工作空間還原會更新相同 ID，不刪除其他未包含的資料。
 
 Backup 可能含 email、精確座標、specimen IDs、notes、照片與未公開地點，應視為敏感研究資料，不要直接公開。
 
@@ -236,6 +239,7 @@ Backup 可能含 email、精確座標、specimen IDs、notes、照片與未公�
 - FieldScout 沒有帳號伺服器、後端資料庫或自動 cloud sync。
 - 換裝置、換瀏覽器或使用 Private Browsing 不會自動取得原 workspace。
 - 清除網站資料可能刪除 IndexedDB；重要調查前後應匯出 Backup 與主要資料格式。
+- GPS 需要瀏覽器持續執行；鎖屏、背景暫停、拒絕定位或儲存失敗可能中斷記錄，不能取代原生背景 GPS 記錄器。
 - 搜尋、taxonomy、來源圖片、地圖圖磚與 Google Maps 依賴網路及第三方服務。
 - 第三方 API 的 downtime、rate limit、CORS 或 schema 變更可能使部分來源暫時不可用。
 - GBIF 的 100,000 筆官方上限、iNaturalist 的服務限制與搜尋期間的資料變動，仍可能讓結果不同於來源的正式 database download。

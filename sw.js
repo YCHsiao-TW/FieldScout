@@ -1,12 +1,20 @@
 const CACHE_PREFIX="fieldscout-";
-const CACHE="fieldscout-v1.1.1-shell";
+const CACHE="fieldscout-v1.1.2-shell";
 const ASSETS=[
   "./","./index.html","./styles.css",
-  "./app.js?v=1.1.1","./db.js?v=1.1.1","./utils.js?v=1.1.1",
-  "./api.js?v=1.1.1","./ranking.js?v=1.1.1","./i18n.js?v=1.1.1",
-  "./backup.js?v=1.1.1",
+  "./app.js?v=1.1.2","./db.js?v=1.1.2","./utils.js?v=1.1.2",
+  "./api.js?v=1.1.2","./ranking.js?v=1.1.2","./i18n.js?v=1.1.2",
+  "./backup.js?v=1.1.2",
   "./manifest.webmanifest"
 ];
+
+async function saveResponse(key,response){
+  try{
+    const cache=await caches.open(CACHE);
+    await cache.put(key,response.clone());
+  }catch(error){console.warn("FieldScout cache write failed",error)}
+  return response;
+}
 
 self.addEventListener("install",e=>{
   e.waitUntil(
@@ -48,9 +56,7 @@ self.addEventListener("fetch",e=>{
       fetch(req)
         .then(r=>{
           if(!r.ok)throw new Error(`Navigation HTTP ${r.status}`);
-          const copy=r.clone();
-          caches.open(CACHE).then(c=>c.put("./index.html",copy));
-          return r;
+          return saveResponse("./index.html",r);
         })
         .catch(()=>caches.match("./index.html"))
     );
@@ -66,9 +72,7 @@ self.addEventListener("fetch",e=>{
         fetch(req)
           .then(r=>{
             if(!r.ok)throw new Error(`Asset HTTP ${r.status}`);
-            const copy=r.clone();
-            caches.open(CACHE).then(c=>c.put(req,copy));
-            return r;
+            return saveResponse(req,r);
           })
           .catch(()=>caches.match(req))
       );
@@ -79,9 +83,7 @@ self.addEventListener("fetch",e=>{
       caches.match(req).then(cached=>
         cached||fetch(req).then(r=>{
           if(!r.ok)return r;
-          const copy=r.clone();
-          caches.open(CACHE).then(c=>c.put(req,copy));
-          return r;
+          return saveResponse(req,r);
         })
       )
     );

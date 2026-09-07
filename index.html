@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FieldScout">
-  <title>FieldScout v1.1.1</title>
+  <title>FieldScout v1.1.2</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -45,7 +45,7 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">GLOBAL BIODIVERSITY FIELD TOOL</div>
-        <h1>FieldScout <span class="version">v1.1.1</span></h1>
+        <h1>FieldScout <span class="version">v1.1.2</span></h1>
       </div>
       <div class="top-actions">
         <span id="countryBadge" class="badge">TW</span>
@@ -201,7 +201,12 @@
             </div>
           </div>
           <div id="resultList" class="cards"></div>
-          <button id="resultLoadMoreBtn" class="result-load-more hidden" type="button">載入更多清單紀錄</button>
+          <div id="resultPager" class="button-row result-pager hidden" aria-label="清單分頁">
+            <button id="resultPrevBtn" type="button">上一頁</button>
+            <label>頁碼 <input id="resultPageInput" type="number" min="1" value="1" step="1"></label>
+            <span id="resultPageCount"></span>
+            <button id="resultLoadMoreBtn" type="button">下一頁</button>
+          </div>
         </section>
 
         <!-- Trips -->
@@ -400,15 +405,16 @@
             </div>
             <label>物種<input id="recordTaxon" placeholder="Scientific name / 中文名"></label>
             <div class="two-col trip-link-row">
+              <label>對應行程
+                <select id="recordTrip"><option value="">未綁定行程</option></select>
+              </label>
               <label>對應行程採集點
                 <select id="recordTripPoint">
                   <option value="">未綁定行程點</option>
                 </select>
               </label>
-              <div class="trip-link-action">
-                <span class="meta">綁定後，採集成果會回連到 A / B / C 採集目標。</span>
-              </div>
             </div>
+            <p class="meta">綁定後，採集成果會回連到 A / B / C 採集目標。</p>
             <div class="two-col">
               <label>微棲地
                 <select id="microhabitat">
@@ -482,9 +488,11 @@
           <button id="saveSpecimenSettingsBtn">儲存編號設定</button>
 
           <h3>完整備份／還原</h3>
+          <label class="checkbox-row"><input id="backupIncludeCache" type="checkbox">包含搜尋快取（可重新下載）</label>
+          <p class="meta">備份包含行程、採集紀錄、照片與設定。大型備份自動分檔，還原時請一次選取全部分檔。</p>
           <div class="button-row">
             <button id="backupBtn">匯出 Backup JSON</button>
-            <label class="file-button">匯入 Backup<input id="restoreInput" type="file" accept=".json,application/json"></label>
+            <label class="file-button">匯入 Backup<input id="restoreInput" type="file" accept=".json,application/json" multiple></label>
           </div>
 
           <h3>資料管理</h3>
@@ -507,6 +515,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script type="module" src="./app.js?v=1.1.1"></script>
+  <script type="module" src="./app.js?v=1.1.2"></script>
 </body>
 </html>

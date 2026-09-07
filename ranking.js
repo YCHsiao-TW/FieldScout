@@ -1,4 +1,4 @@
-import {haversineKm} from "./utils.js";
+import {haversineKm} from "./utils.js?v=1.1.2";
 
 function validCoordinate(lat,lon){
   return Number.isFinite(lat)&&Number.isFinite(lon)&&

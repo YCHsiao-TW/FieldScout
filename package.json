@@ -1,11 +1,14 @@
 {
   "name": "fieldscout",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "node --check app.js && node --check api.js && node --check backup.js && node --check db.js && node --check i18n.js && node --check ranking.js && node --check sw.js && node --check utils.js",
-    "test": "node --test",
+    "test": "node --test tests/*.test.js",
     "verify": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
   }
 }

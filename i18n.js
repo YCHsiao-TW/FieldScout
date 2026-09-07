@@ -2,6 +2,26 @@ let currentLanguage="zh-Hant";
 let translating=false;
 
 const ZH_TO_EN={
+  "清單分頁":"Occurrence list pages",
+  "上一頁":"Previous page",
+  "下一頁":"Next page",
+  "頁碼":"Page",
+  "對應行程":"Linked Trip",
+  "未綁定行程":"No linked Trip",
+  "詳情":"Details",
+  "包含搜尋快取（可重新下載）":"Include search cache (can be downloaded again)",
+  "備份包含行程、採集紀錄、照片與設定。大型備份自動分檔，還原時請一次選取全部分檔。":"Backups include Trips, records, photos and settings. Large backups are split into parts; select all parts together to restore.",
+  "下載備份":"Download backup",
+  "請下載所有檔案；還原分檔備份時，請一次選取同一組全部檔案。":"Download every file. To restore a split backup, select all files from the same set together.",
+  "備份已準備，請下載並妥善保存所有檔案。":"Backup ready. Download and securely keep every file.",
+  "放棄目前表單的未儲存內容，建立新的快速紀錄？":"Discard unsaved form changes and start a new quick record?",
+  "請先完成儲存或停止搜尋，再進行備份／還原。":"Finish saving or stop the search before backup or restore.",
+  "先停止並儲存 GPS Track，再進行備份／還原？":"Stop and save GPS Track before backup or restore?",
+  "先停止並儲存 GPS Track，再切換工作空間？":"Stop and save GPS Track before switching workspaces?",
+  "行程點已不存在，請重新選擇":"The Trip Point no longer exists. Select it again.",
+  "行程或工作空間已變更，請重新確認":"The Trip or workspace changed. Please check again.",
+  "請填寫標本／紀錄號":"Enter a specimen / record ID.",
+  "照片處理後仍超過 15 MB":"The processed photo exceeds 15 MB.",
   // Profile gate
   "選擇使用國家並輸入電子郵件，開啟這個裝置上的 FieldScout 工作空間。":"Choose a country and enter your email to open this device's FieldScout workspace.",
   "使用國家":"Country",
@@ -339,6 +359,13 @@ function dynamicEnglish(text){
     .replace(/；搜尋已取消，保留已載入結果/g,"; search cancelled, keeping loaded results")
     .replace(/；已達 API 單次載入上限：([^；]+)/g,"; API load limit reached: $1");
   const patterns=[
+    [/^(\d+) \/ (\d+) 筆 · 地圖已載入 (\d+) \/ (\d+) · 清單 (\d+)–(\d+) \/ (\d+)(.*)$/,m=>`${m[1]} / ${m[2]} records · Map loaded ${m[3]} / ${m[4]} · List ${m[5]}–${m[6]} / ${m[7]}${m[8]?" · Current map extent":""}`],
+    [/^採集紀錄儲存失敗，表單已保留：(.*)$/,m=>`Could not save the record; the form was kept: ${dynamicEnglish(m[1])}`],
+    [/^GPS 儲存失敗，請保留頁面並按停止重試：(.*)$/,m=>`GPS save failed. Keep this page open and press Stop to retry: ${m[1]}`],
+    [/^待儲存 · (\d+) 點；請按停止重試(.*)$/,m=>`Unsaved · ${m[1]} points; press Stop to retry${m[2]?" · GPS save failed":""}`],
+    [/^(記錄中 · .*|已儲存 · .*) · GPS 儲存失敗$/,m=>`${dynamicEnglish(m[1])} · GPS save failed`],
+    [/^備份失敗：(.*)$/,m=>`Backup failed: ${m[1]}`],
+    [/^還原失敗：(.*)$/,m=>`Restore failed: ${m[1]}`],
     [/^已建立行程「(.+)」。$/,m=>`Created Trip “${m[1]}”.`],
     [/^已自動建立行程「(.+)」。$/,m=>`Automatically created Trip “${m[1]}”.`],
     [/^行程已改名為「(.+)」。$/,m=>`Trip renamed to “${m[1]}”.`],

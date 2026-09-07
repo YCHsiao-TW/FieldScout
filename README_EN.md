@@ -1,4 +1,4 @@
-# FieldScout v1.1.1
+# FieldScout v1.1.2
 
 FieldScout is a mobile-first, local-first biodiversity fieldwork PWA that connects data exploration, site scouting, Trip planning, navigation, and field records in one application.
 
@@ -45,7 +45,7 @@ The five main pages have distinct roles:
 
 - GBIF is filtered with the selected ISO country code; Global omits the country filter.
 - iNaturalist resolves the selected country to a Place and filters with `place_id`; Global omits the Place restriction.
-- FieldScout automatically paginates through GBIF and iNaturalist instead of imposing its former 300/200-record application limits.
+- FieldScout paginates through GBIF and continues iNaturalist searches by descending observation ID (`id_below`). It does not impose an application-level total record limit or rely on iNaturalist's restricted page-number result window.
 - Search progress reports fetched records, valid coordinates, and completion for each source, and the search can be cancelled at any time. Previous results are retained when a new search is cancelled before producing usable data.
 - The [GBIF Search API](https://techdocs.gbif.org/en/openapi/v1/occurrence) has an official 100,000-record pagination ceiling. [iNaturalist API](https://www.inaturalist.org/pages/developers) availability remains subject to its service, rate limits, and network conditions. Use each source's formal download workflow for very large research datasets.
 - The sources run independently, so one can remain usable if the other is temporarily unavailable.
@@ -80,7 +80,7 @@ Filters include:
 
 Sort by nearest distance, newest, oldest, best coordinate precision, or multi-source support. A 12-month chart displays record counts and can apply or clear a month filter; it does not represent biological abundance.
 
-Map markers and occurrence cards remain synchronized and selected. The map progressively adds every filtered point in background batches instead of stopping at 200. To keep phones responsive, the list builds 200 cards at a time and loads the next batch near the bottom or through the Load more list records button. Separate map and list counts make their progress explicit; filters, monthly counts, candidate ranking, bulk Trip addition, and CSV/GeoJSON exports still use the complete loaded result set. The detail view exposes source images, metadata, licenses, sensitive-data flags, original records, and Google Maps.
+The map progressively adds every filtered point in background batches. The list renders one page of up to 200 cards, with Previous/Next buttons and direct page-number entry. Selecting a marker opens its matching list page; marker popups also open full details directly. Pagination keeps the DOM bounded without limiting results. Filters, monthly counts, candidate ranking, bulk Trip addition, and CSV/GeoJSON exports use the complete loaded result set. Details expose source images, metadata, licenses, sensitive-data flags, original records, and Google Maps.
 
 ## Candidate-site ranking
 
@@ -167,7 +167,7 @@ The Field page runs the active Trip:
 - Mark Arrived, Surveyed, Inaccessible, or Revisit.
 - Track processed targets, a progress bar, and the next unfinished target; `surveyed` and `inaccessible` count toward progress.
 - Start a quick field record pre-linked to the current Trip Point, with target taxon and coordinates prefilled, then return to Field after saving.
-- Start and stop a GPS Track stored with the current Trip. Track points contain latitude, longitude, timestamp, and accuracy and export as GPX.
+- Start and stop a GPS Track bound to the Trip where recording began. Samples are saved incrementally; restarting appends a new segment without replacing previous segments. GPX preserves segment boundaries. A failed save keeps pending points in memory and enables Stop to retry; do not close the page until saving succeeds.
 
 ## Specimen and observation records
 
@@ -181,6 +181,8 @@ Each field record can store:
 - created and updated timestamps
 
 Records can be created, edited, deleted, focused on the map, opened in Google Maps, and viewed with their photos. Coordinates may come from current field GPS or the selected Trip Point; the two represent actual and planned locations respectively.
+
+The record form selects its own Trip and Trip Point independently of the active navigation Trip. Editing preserves the original association. Quick recording starts a new record and asks before discarding an occupied form. Record, new photos, and target-status changes commit together; duplicate submissions are blocked, and failed saves preserve the form. Planned coordinates do not inherit a previous GPS accuracy value.
 
 Saving a record linked to an `unvisited` or `arrived` target automatically changes that target to `surveyed`.
 
@@ -220,14 +222,15 @@ The obscured-coordinate CSV applies a user-selected radius and deterministic dis
 
 ### Backup JSON
 
-A backup contains the current Profile, settings, Custom Points, Trips, field records, photos, and occurrence cache. It does not include offline maps.
+A backup contains the current Profile, settings, Custom Points, Trips, field records, and photos. Search cache is optional and excluded by default; offline maps are not included. Files up to 100 MiB use ordinary Backup JSON. Larger backups are split into numbered JSON files with SHA-256 checksums. Download every part, then select all parts together when restoring; their selection order does not matter. Processing still requires sufficient browser memory and storage.
 
 Restore performs the following safeguards:
 
-1. Reject files larger than 100 MB.
-2. Validate the version, Profile, data arrays, unique IDs, and photo data URLs.
+1. Enforce the 100 MiB per-file limit and reject missing, duplicate, mixed, or damaged backup parts before writing anything.
+2. Validate the version, Profile, data arrays, unique IDs, and photo data URLs; single-file backups from supported older versions remain readable.
 3. Convert each photo and enforce a 15 MB per-photo limit.
 4. After all validation succeeds, write settings, Trips, records, photos, and cache in one IndexedDB transaction; a failure cannot leave a half-imported backup.
+5. Copy cross-workspace imports using new IDs for Trips, points, records, and photos, preserving their links and the original workspace. Keep the destination's preferences and existing Custom Points, and do not import country-specific search cache into a different workspace. Same-workspace restores update matching IDs rather than deleting unrelated data.
 
 Backups may contain an email, exact coordinates, specimen IDs, notes, photos, and unpublished sites. Treat them as sensitive research data and do not publish them directly.
 
@@ -241,5 +244,6 @@ Backups may contain an email, exact coordinates, specimen IDs, notes, photos, an
 - GBIF's official 100,000-record ceiling, iNaturalist service constraints, and records changing during a search can still make results differ from a source's formal database download.
 - Distance is straight-line distance; GPS accuracy, source obscuring, and coordinate uncertainty all affect interpretation.
 - Large photo collections consume browser storage, and iOS may manage storage quotas automatically.
+- GPS recording requires the browser to keep running. Locking a phone, background suspension, denied location permission, or storage failure can interrupt recording; this is not a native background GPS logger.
 
 Settings can switch Profiles or permanently delete the current Profile's settings, Trips, records, photos, and cache from this browser. Export a backup first.
